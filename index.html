@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Willfine SMS Builder</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#0f1419;color:#e6edf3;
+    font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+  .switcher{
+    display:flex;align-items:stretch;background:#0a0e13;
+    border-bottom:1px solid #2a3340;height:44px;
+    -webkit-user-select:none;user-select:none
+  }
+  .brand{
+    display:flex;align-items:center;padding:0 18px;
+    color:#e6edf3;font-weight:700;font-size:13px;
+    border-right:1px solid #2a3340;letter-spacing:.02em
+  }
+  .brand .dot{
+    display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:linear-gradient(135deg,#4cc9f0 0%,#ff9933 100%);
+    margin-right:8px
+  }
+  .tab{
+    display:flex;align-items:center;padding:0 18px;cursor:pointer;
+    color:#8b98a8;font-size:13px;font-weight:500;
+    border-bottom:2px solid transparent;transition:color .15s,border-color .15s
+  }
+  .tab:hover{color:#e6edf3}
+  .tab.active{color:#e6edf3}
+  .tab[data-tab="newer"].active{border-bottom-color:#4cc9f0}
+  .tab[data-tab="older"].active{border-bottom-color:#ff9933}
+  .tab .pill{
+    display:inline-block;font-size:10px;font-weight:600;
+    padding:2px 6px;border-radius:3px;margin-left:8px;
+    text-transform:uppercase;letter-spacing:.05em
+  }
+  .tab[data-tab="newer"] .pill{background:rgba(76,201,240,.15);color:#4cc9f0}
+  .tab[data-tab="older"] .pill{background:rgba(255,153,51,.15);color:#ff9933}
+  .spacer{flex:1}
+  .ver{
+    display:flex;align-items:center;padding:0 18px;
+    color:#5a6675;font-size:11px
+  }
+  iframe{
+    width:100%;height:calc(100vh - 44px);border:0;display:block;background:#0f1419
+  }
+</style>
+</head>
+<body>
+<div class="switcher">
+  <div class="brand"><span class="dot"></span>Willfine SMS Builder</div>
+  <div class="tab active" data-tab="newer" data-src="willfine_T4.0CG.html">
+    T4.0CG <span class="pill">newer</span>
+  </div>
+  <div class="tab" data-tab="older" data-src="willfine_4.0CG.html">
+    4.0CG <span class="pill">older</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="ver">v1.0.0</div>
+</div>
+<iframe id="frame" src="willfine_T4.0CG.html" title="SMS builder"></iframe>
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const frame = document.getElementById('frame');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      frame.src = t.dataset.src;
+    });
+  });
+</script>
+</body>
+</html>

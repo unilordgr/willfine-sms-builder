@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Willfine T4.0CG — SMS Command Builder</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2028; --panel2:#222a34; --ink:#e6edf3;
+    --muted:#8b98a8; --line:#2a3340; --accent:#4cc9f0; --accent2:#7ed957;
+    --warn:#f9a03f; --danger:#e05a5a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+  @media (max-width:900px){ .cols{grid-template-columns:1fr} }
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+  .output{
+    position:sticky;top:0;z-index:5;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    margin-bottom:16px;box-shadow:0 4px 16px rgba(0,0,0,.25)
+  }
+  .output label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .output .code{
+    margin-top:6px;font-family:"SFMono-Regular",Consolas,monospace;
+    font-size:14px;word-break:break-all;background:#0b1016;
+    border:1px solid var(--line);border-radius:6px;padding:10px;color:var(--accent2)
+  }
+  .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  button{
+    background:var(--accent);color:#0a1014;border:0;border-radius:6px;
+    padding:8px 14px;font-weight:600;cursor:pointer;font-size:13px
+  }
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  button.warn{background:var(--warn);color:#1a1005}
+  button:active{transform:translateY(1px)}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+  .tab{
+    padding:9px 14px;cursor:pointer;color:var(--muted);
+    border-bottom:2px solid transparent;font-weight:500;user-select:none
+  }
+  .tab.active{color:var(--ink);border-color:var(--accent)}
+  .section{display:none}
+  .section.active{display:block}
+  .opt{
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    padding:10px 14px;margin-bottom:8px
+  }
+  .opt .label{font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .opt .num{
+    display:inline-block;min-width:26px;text-align:center;color:var(--muted);
+    font-size:12px;background:var(--panel2);border-radius:4px;padding:2px 6px
+  }
+  .choices{display:flex;flex-wrap:wrap;gap:6px}
+  .choices label{
+    display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    padding:5px 10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;font-size:13px;user-select:none
+  }
+  .choices label:hover{border-color:var(--accent)}
+  .choices input[type=radio]{accent-color:var(--accent);margin:0}
+  .choices input[type=radio]:checked + span{color:var(--accent2);font-weight:600}
+  .choices label:has(input:checked){border-color:var(--accent2);background:#1a2a1f}
+  .inline{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+  input[type=text],input[type=number],input[type=time],select{
+    background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+    border-radius:5px;padding:5px 8px;font:13px monospace
+  }
+  select{cursor:pointer}
+  input[type=text]{min-width:160px}
+  .hint{color:var(--muted);font-size:12px;margin-top:4px}
+  .hidden{display:none!important}
+  .note{
+    background:#1a2330;border-left:3px solid var(--accent);padding:8px 12px;
+    border-radius:4px;color:#cfd7e0;font-size:12px;margin-bottom:12px
+  }
+  .chk{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:5px;cursor:pointer}
+  .chk input{accent-color:var(--accent)}
+  h2{font-size:15px;margin:16px 0 8px;color:var(--accent)}
+  .sidebar{position:sticky;top:180px}
+  .summary{
+    font-size:11.5px;background:var(--panel);
+    border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    max-height:calc(100vh - 200px);overflow-y:auto
+  }
+  .summary h4{
+    margin:0 0 8px;color:var(--accent);font-size:10px;
+    text-transform:uppercase;letter-spacing:.08em;font-weight:700
+  }
+  .summary .row2{display:flex;gap:6px;padding:2px 0;align-items:baseline;line-height:1.35}
+  .summary .k{color:var(--muted);flex:0 0 46%;font-size:11px}
+  .summary .v{color:var(--ink);flex:1 1 auto;word-break:break-word;font-weight:500}
+  .summary .v.off{color:var(--muted);font-style:italic;font-weight:400}
+  .summary .v.on{color:var(--accent2)}
+  .decoder{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px;margin-top:24px
+  }
+  .decoder h3{margin:0 0 8px;font-size:15px}
+  .decoder textarea{
+    width:100%;background:var(--panel2);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:8px;
+    font:13px "SFMono-Regular",Consolas,monospace;min-height:56px;box-sizing:border-box;resize:vertical
+  }
+  .decoder .result{
+    margin-top:10px;background:#0b1016;border:1px solid var(--line);
+    border-radius:6px;padding:10px 12px;font-size:13px;min-height:30px
+  }
+  .decoder .result .err{color:var(--warn)}
+  .decoder .result h4{
+    margin:0 0 8px;color:var(--accent);font-size:11px;
+    text-transform:uppercase;letter-spacing:.08em;font-weight:700
+  }
+  .decoder .result .row2{display:flex;gap:10px;padding:3px 0}
+  .decoder .result .k{color:var(--muted);min-width:180px;flex-shrink:0}
+  .decoder .result .v{color:var(--ink);word-break:break-word}
+  .decoder .result .v.off{color:var(--muted);font-style:italic}
+  .decoder .result .v.on{color:var(--accent2)}
+  .decoder .result .reserved{opacity:.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Willfine T4.0CG — SMS Command Builder</h1>
+  <div class="sub">Tick the options you want, then copy the generated SMS command.</div>
+
+  <div class="output">
+    <label>Generated SMS command</label>
+    <div class="code" id="out">—</div>
+    <div class="row">
+      <button onclick="copyOut()">Copy</button>
+      <button class="ghost" onclick="reset()">Reset to defaults</button>
+      <button class="ghost" onclick="pasteDefault()">Insert default string</button>
+    </div>
+  </div>
+
+  <div class="cols">
+   <div class="maincol">
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="basic">Basic ($01)</div>
+      <div class="tab" data-tab="gprs">GPRS ($10)</div>
+      <div class="tab" data-tab="email">Email ($08)</div>
+      <div class="tab" data-tab="pic">Get a Picture ($03)</div>
+    </div>
+
+  <!-- BASIC SETTINGS -->
+  <div class="section active" id="basic">
+    <div class="note">Basic command prefix: <b>$01*27#</b> — 27 parameters, separated by <b>#</b>, terminated by <b>$</b>.</div>
+    <div id="basicOpts"></div>
+  </div>
+
+  <!-- GPRS -->
+  <div class="section" id="gprs">
+    <div class="note">GPRS command prefix: <b>$10*13#</b> — 13 parameters.</div>
+    <div id="gprsOpts"></div>
+  </div>
+
+  <!-- EMAIL -->
+  <div class="section" id="email">
+    <div class="note">Email command prefix: <b>$08*8#</b> — 4 email addresses + 4 reserved fields.</div>
+    <div id="emailOpts"></div>
+  </div>
+
+  <!-- PIC -->
+  <div class="section" id="pic">
+    <div class="note">Fixed trigger command. No options to set.</div>
+    <div class="opt">
+      <div class="label"><span class="num">1</span> Get a Picture</div>
+      <div class="hint">Perform a photo / video capture on the camera.</div>
+    </div>
+  </div>
+   </div><!-- /maincol -->
+
+   <aside class="sidebar">
+     <div class="summary" id="summary"></div>
+   </aside>
+  </div><!-- /cols -->
+
+  <!-- DECODER -->
+  <div class="decoder">
+    <h3>Decode a command</h3>
+    <div class="hint" style="margin-bottom:8px">Paste a command string (e.g. <code>$01*27#1#5#2#...$</code>) to see what it tells the camera to do.</div>
+    <textarea id="decoderIn" placeholder="$01*27#1#5#2#5#1#2#0#1#0#1#0#7#0#0#OFF#OFF#OFF#OFF#1#0#1#OFF#OFF#0#0#0#0$"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button onclick="decode()">Decode</button>
+      <button class="ghost" onclick="decodeCurrent()">Decode the command above ↑</button>
+      <button class="ghost" onclick="clearDecoder()">Clear</button>
+    </div>
+    <div class="result" id="decoderOut">—</div>
+  </div>
+</div>
+
+<script>
+/* ========= UTC ZONE LABELS ========= */
+/* Cities listed at their TRUE offset for each season. Northern-hemisphere framing:
+   Winter = roughly late Oct – late Mar (NH standard time).
+   Summer = roughly late Mar – late Oct (NH DST).
+   Southern-hemisphere cities (Sydney, Auckland) flip the other way — their
+   DST runs during NH winter — so they appear at a higher offset in the Winter list. */
+const UTC_ZONES_WINTER = [
+  [-12, 'Baker Island'],
+  [-11, 'Pago Pago, American Samoa'],
+  [-10, 'Honolulu, Hawaii'],
+  [ -9, 'Anchorage (AKST)'],
+  [ -8, 'Los Angeles, Vancouver (PST)'],
+  [ -7, 'Denver, Phoenix (MST)'],
+  [ -6, 'Chicago, Mexico City (CST)'],
+  [ -5, 'New York, Toronto, Miami (EST)'],
+  [ -4, 'Halifax (AST), Caracas, La Paz'],
+  [ -3, 'São Paulo, Buenos Aires'],
+  [ -2, 'South Georgia'],
+  [ -1, 'Azores, Cape Verde'],
+  [  0, 'London, Lisbon, Dublin, Reykjavik (GMT)'],
+  [  1, 'Berlin, Paris, Rome, Madrid (CET)'],
+  [  2, 'Athens, Helsinki, Cairo, Johannesburg (EET/SAST)'],
+  [  3, 'Moscow, Istanbul, Riyadh, Nairobi'],
+  [  4, 'Dubai, Baku, Tbilisi'],
+  [  5, 'Karachi, Tashkent'],
+  [  6, 'Dhaka, Almaty'],
+  [  7, 'Bangkok, Jakarta, Hanoi'],
+  [  8, 'Beijing, Singapore, Hong Kong, Perth'],
+  [  9, 'Tokyo, Seoul'],
+  [ 10, 'Brisbane'],
+  [ 11, 'Sydney, Melbourne (AEDT), Nouméa'],
+  [ 12, 'Fiji'],
+  [ 13, 'Auckland (NZDT), Samoa'],
+  [ 14, 'Kiribati, Line Islands']
+];
+const UTC_ZONES_SUMMER = [
+  [-12, 'Baker Island'],
+  [-11, 'Pago Pago, American Samoa'],
+  [-10, 'Honolulu, Hawaii'],
+  [ -9, '(Aleutians only)'],
+  [ -8, 'Anchorage (AKDT)'],
+  [ -7, 'Los Angeles, Vancouver (PDT), Phoenix'],
+  [ -6, 'Denver (MDT)'],
+  [ -5, 'Chicago, Mexico City (CDT)'],
+  [ -4, 'New York, Toronto, Miami (EDT)'],
+  [ -3, 'Halifax (ADT), São Paulo, Buenos Aires'],
+  [ -2, 'South Georgia'],
+  [ -1, 'Cape Verde'],
+  [  0, 'Reykjavik, Accra, Abidjan'],
+  [  1, 'London, Lisbon, Dublin (BST/WEST), Algiers'],
+  [  2, 'Berlin, Paris, Rome, Madrid (CEST), Johannesburg'],
+  [  3, 'Athens, Helsinki, Cairo (EEST); Moscow, Istanbul, Riyadh'],
+  [  4, 'Dubai, Baku, Tbilisi'],
+  [  5, 'Karachi, Tashkent'],
+  [  6, 'Dhaka, Almaty'],
+  [  7, 'Bangkok, Jakarta, Hanoi'],
+  [  8, 'Beijing, Singapore, Hong Kong, Perth'],
+  [  9, 'Tokyo, Seoul'],
+  [ 10, 'Sydney, Melbourne (AEST), Brisbane'],
+  [ 11, 'Nouméa, Solomon Islands'],
+  [ 12, 'Auckland (NZST), Fiji'],
+  [ 13, 'Samoa, Tonga'],
+  [ 14, 'Kiribati']
+];
+
+/* ========= OPTION DEFINITIONS ========= */
+/* Each option has: id, label, default value, and either:
+     - choices: radio list of {label,value}
+     - custom: special UI handler (onoff-time, camera-id, timezone, max-num, piccount, daily-report)
+*/
+const BASIC_OPTS = [
+  { id:'b1',  label:'Camera Mode',        def:'1', choices:[['Photo','1'],['Video','2'],['Pic+Video','3']] },
+  { id:'b2',  label:'Pic Size',           def:'5', choices:[['32M','1'],['24M','2'],['12M','3'],['8M','4'],['5M','5']] },
+  { id:'b3',  label:'Video Size',         def:'2', choices:[['FHD 1080P','1'],['HD 720P','2'],['WVGA','3']] },
+  { id:'b4',  label:'Video Length (sec)', def:'5', choices:[['5','5'],['10','10'],['15','15'],['20','20'],['30','30'],['40','40'],['50','50'],['59','59']] },
+  { id:'b5',  label:'Multi Shot',         def:'1', choices:[['1P','1'],['2P','2'],['3P','3'],['4P','4'],['5P','5']] },
+  { id:'b6',  label:'Night Mode',         def:'2', choices:[['Max Range','1'],['Balanced','2'],['Min Blur','3']] },
+  { id:'b7',  label:'Flash LED',          def:'0', choices:[['High','0'],['Low','1']] },
+  { id:'b8',  label:'Stamp',              def:'1', choices:[['OFF','0'],['ON','1']] },
+  { id:'b9',  label:'Battery Type',       def:'0', choices:[['Alkaline','0'],['Ni-MH','1']] },
+  { id:'b10', label:'SD Cycle',           def:'1', choices:[['OFF','0'],['ON','1']] },
+  { id:'b11', label:'Frequency',          def:'0', locked:true,
+      hint:'Not supported on T4.0CG — locked to 0. The slot must stay in the command string so later fields keep their correct position.' },
+  { id:'b12', label:'PIR Sensitivity',    def:'7', choices:[['1','1'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7'],['8','8'],['9','9']] },
+  { id:'b13', label:'PIR Switch',         def:'0', choices:[['ON','0'],['OFF','1']] },
+  { id:'b14', label:'Language',           def:'0', choices:[['English','0']] },
+  { id:'b15', label:'Delay',              def:'OFF', custom:'onoff-hms',
+      hint:'Hours:minutes:seconds between 00:00:05 and 23:59:59' },
+  { id:'b16', label:'Time Lapse',         def:'OFF', custom:'onoff-hms',
+      hint:'Hours:minutes:seconds between 00:00:05 and 23:59:59' },
+  { id:'b17', label:'Work Timer 1',       def:'OFF', custom:'onoff-timer',
+      hint:'Start and end time (24-hour)' },
+  { id:'b18', label:'Work Timer 2',       def:'OFF', custom:'onoff-timer',
+      hint:'Start and end time (24-hour)' },
+  { id:'b19', label:'TransPic (send photos)',  def:'1', choices:[['OFF','0'],['ON','1']] },
+  { id:'b20', label:'TransVideo (send videos)',def:'0', choices:[['OFF','0'],['ON','1']] },
+  { id:'b21', label:'picCount (which shots to send)', def:'1', custom:'piccount',
+      hint:'Bitmask: tick each shot you want sent (1st=1, 2nd=2, 3rd=4, 4th=8, 5th=16)' },
+  { id:'b22', label:'Camera ID',          def:'OFF', custom:'camera-id',
+      hint:'Exactly 12 characters (letters/numbers), or OFF' },
+  { id:'b23', label:'Time Zone',          def:'OFF', custom:'timezone',
+      hint:'Manual keeps whatever the camera already has set. Auto syncs the camera clock. Pick the season first — the city list below updates to show each zone\'s true offset for that time of year.' },
+  { id:'b24', label:'Reserved 24', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'b25', label:'Reserved 25', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'b26', label:'Reserved 26', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'b27', label:'Reserved 27', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' }
+];
+
+const GPRS_OPTS = [
+  { id:'g1', label:'SMS Remote Control', def:'0', choices:[['Daily','0'],['Immediately','1']] },
+  { id:'g2', label:'SMTP/FTP Pic Size',  def:'0', choices:[['Small','0'],['Bigger','1'],['Original','2']] },
+  { id:'g3', label:'Max Num / Day',      def:'0', custom:'max-num',
+      hint:'0 = Unlimited, or enter 1–99' },
+  { id:'g4', label:'Daily Report',       def:'OFF', custom:'onoff-timer',
+      hint:'OFF, or a time range HH:MM–HH:MM' },
+  { id:'g5', label:'GPS',                def:'0', choices:[['OFF','0'],['ON','1']] },
+  { id:'g6', label:'Auto Match',         def:'0', choices:[['Auto','0'],['Manual','1']] },
+  { id:'g7', label:'MMS',                def:'1', choices:[['OFF','0'],['ON','1']] },
+  { id:'g8', label:'SMTP',               def:'1', choices:[['OFF','0'],['ON','1']] },
+  { id:'g9', label:'FTP(s)',             def:'1', choices:[['FTP','0'],['ON','1'],['FTPS','2']] },
+  { id:'g10', label:'Reserved 10', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'g11', label:'Reserved 11', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'g12', label:'Reserved 12', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'g13', label:'Reserved 13', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' }
+];
+
+const EMAIL_OPTS = [
+  { id:'e1', label:'Recipient Email 1', def:'email1', custom:'email' },
+  { id:'e2', label:'Recipient Email 2', def:'email2', custom:'email' },
+  { id:'e3', label:'Recipient Email 3', def:'email3', custom:'email' },
+  { id:'e4', label:'Recipient Email 4', def:'email4', custom:'email' },
+  { id:'e5', label:'Reserved 5', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'e6', label:'Reserved 6', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'e7', label:'Reserved 7', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
+  { id:'e8', label:'Reserved 8', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' }
+];
+
+/* ========= RENDERING ========= */
+const state = {};  // id -> current string value
+
+function renderOpt(o, idx, container){
+  const div = document.createElement('div'); div.className='opt';
+  const lab = document.createElement('div'); lab.className='label';
+  lab.innerHTML = `<span class="num">${idx+1}</span> ${o.label}`;
+  div.appendChild(lab);
+
+  if(o.locked){
+    const c = document.createElement('div'); c.className='choices';
+    const l=document.createElement('label');
+    l.style.opacity='0.6'; l.style.cursor='not-allowed';
+    l.innerHTML='<span>🔒 Fixed at '+o.def+'</span>';
+    c.appendChild(l);
+    div.appendChild(c);
+    state[o.id] = o.def;
+  } else if(o.choices){
+    const c = document.createElement('div'); c.className='choices';
+    o.choices.forEach(([text,val])=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input');
+      r.type='radio'; r.name=o.id; r.value=val;
+      if(val===o.def) r.checked=true;
+      r.onchange=()=>{ state[o.id]=val; update(); };
+      const s=document.createElement('span'); s.textContent=text;
+      l.appendChild(r); l.appendChild(s); c.appendChild(l);
+    });
+    div.appendChild(c);
+    state[o.id] = o.def;
+  } else if(o.custom==='onoff-hms'){
+    // Radio OFF / ON -> time picker HH:MM:SS
+    const c = document.createElement('div'); c.className='choices';
+    ['OFF','ON'].forEach(mode=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input'); r.type='radio'; r.name=o.id; r.value=mode;
+      if(mode==='OFF') r.checked=true;
+      r.onchange=()=>{ o._mode=mode; applyHMS(o); update(); refreshHMS(o); };
+      const s=document.createElement('span'); s.textContent=mode;
+      l.appendChild(r); l.appendChild(s); c.appendChild(l);
+    });
+    div.appendChild(c);
+    const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
+    const t=document.createElement('input'); t.type='time'; t.step='1'; t.value='00:00:30'; t.id=o.id+'_t';
+    t.oninput=()=>{ applyHMS(o); update(); };
+    line.appendChild(document.createTextNode('Value: ')); line.appendChild(t);
+    div.appendChild(line);
+    o._mode='OFF';
+    state[o.id] = 'OFF';
+  } else if(o.custom==='onoff-timer'){
+    // OFF / ON -> HH:MM-HH:MM
+    const c=document.createElement('div'); c.className='choices';
+    ['OFF','ON'].forEach(mode=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input'); r.type='radio'; r.name=o.id; r.value=mode;
+      if(mode==='OFF') r.checked=true;
+      r.onchange=()=>{ o._mode=mode; applyTimer(o); update(); refreshTimer(o); };
+      const s=document.createElement('span'); s.textContent=mode;
+      l.appendChild(r); l.appendChild(s); c.appendChild(l);
+    });
+    div.appendChild(c);
+    const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
+    const t1=document.createElement('input'); t1.type='time'; t1.value='08:00'; t1.id=o.id+'_s';
+    const t2=document.createElement('input'); t2.type='time'; t2.value='18:00'; t2.id=o.id+'_e';
+    t1.oninput=t2.oninput=()=>{ applyTimer(o); update(); };
+    line.appendChild(document.createTextNode('Start: ')); line.appendChild(t1);
+    line.appendChild(document.createTextNode(' End: ')); line.appendChild(t2);
+    div.appendChild(line);
+    o._mode='OFF';
+    state[o.id] = 'OFF';
+  } else if(o.custom==='piccount'){
+    const c=document.createElement('div'); c.className='choices';
+    [1,2,3,4,5].forEach(n=>{
+      const l=document.createElement('label'); l.className='chk';
+      const ck=document.createElement('input'); ck.type='checkbox'; ck.id=o.id+'_p'+n;
+      if(n===1) ck.checked=true;
+      ck.onchange=()=>{ applyPicCount(o); update(); };
+      l.appendChild(ck); l.appendChild(document.createTextNode(' Send '+n+ordinal(n)+' shot'));
+      c.appendChild(l);
+    });
+    div.appendChild(c);
+    state[o.id] = '1';
+  } else if(o.custom==='camera-id'){
+    const c=document.createElement('div'); c.className='choices';
+    ['OFF','ON'].forEach(mode=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input'); r.type='radio'; r.name=o.id; r.value=mode;
+      if(mode==='OFF') r.checked=true;
+      r.onchange=()=>{ o._mode=mode; applyCamId(o); update(); refreshCamId(o); };
+      const s=document.createElement('span'); s.textContent=mode;
+      l.appendChild(r); l.appendChild(s); c.appendChild(l);
+    });
+    div.appendChild(c);
+    const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
+    const t=document.createElement('input'); t.type='text'; t.maxLength=12; t.placeholder='e.g. CAM001ABCDEF'; t.id=o.id+'_v';
+    t.oninput=()=>{ applyCamId(o); update(); };
+    line.appendChild(document.createTextNode('ID (12 chars): ')); line.appendChild(t);
+    div.appendChild(line);
+    o._mode='OFF';
+    state[o.id]='OFF';
+  } else if(o.custom==='timezone'){
+    // Mode: OFF (manual) / ON (auto)
+    const c=document.createElement('div'); c.className='choices';
+    ['OFF','ON'].forEach(mode=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input'); r.type='radio'; r.name=o.id; r.value=mode;
+      if(mode==='OFF') r.checked=true;
+      r.onchange=()=>{ o._mode=mode; applyTz(o); update(); refreshTz(o); };
+      const s=document.createElement('span'); s.textContent=(mode==='OFF'?'Manual (OFF)':'Auto');
+      l.appendChild(r); l.appendChild(s); c.appendChild(l);
+    });
+    div.appendChild(c);
+
+    // Container shown only when mode=ON
+    const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
+    line.style.flexDirection='column'; line.style.alignItems='flex-start'; line.style.gap='8px';
+
+    // Season radios (Winter/Summer) with active-months label
+    const seasonRow=document.createElement('div'); seasonRow.style.display='flex';
+    seasonRow.style.alignItems='center'; seasonRow.style.gap='8px'; seasonRow.style.flexWrap='wrap';
+    seasonRow.appendChild(document.createTextNode('Season:'));
+    const sc=document.createElement('div'); sc.className='choices';
+    [
+      ['winter','Winter / Standard','active late Oct – late Mar'],
+      ['summer','Summer / DST',     'active late Mar – late Oct']
+    ].forEach(([val,label,months])=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input'); r.type='radio'; r.name=o.id+'_season'; r.value=val;
+      if(val==='winter') r.checked=true;
+      r.onchange=()=>{ o._season=val; rebuildTzOptions(o); applyTz(o); update(); };
+      const s=document.createElement('span'); s.textContent=label;
+      const m=document.createElement('span');
+      m.style.color='var(--muted)'; m.style.fontSize='11px'; m.style.marginLeft='4px';
+      m.textContent='('+months+')';
+      l.appendChild(r); l.appendChild(s); l.appendChild(m);
+      sc.appendChild(l);
+    });
+    seasonRow.appendChild(sc);
+    line.appendChild(seasonRow);
+
+    // UTC dropdown — populated below based on season
+    const ddRow=document.createElement('div'); ddRow.style.display='flex';
+    ddRow.style.alignItems='center'; ddRow.style.gap='8px'; ddRow.style.flexWrap='wrap';
+    ddRow.appendChild(document.createTextNode('UTC offset:'));
+    const sel=document.createElement('select'); sel.id=o.id+'_v'; sel.style.minWidth='320px';
+    UTC_ZONES_WINTER.forEach(([hr,cities])=>{
+      const opt=document.createElement('option');
+      opt.value=String(hr*4);
+      const sign = hr>=0 ? '+' : '-';
+      opt.textContent='UTC'+sign+Math.abs(hr)+':00 — '+cities;
+      if(hr===0) opt.selected=true;
+      sel.appendChild(opt);
+    });
+    sel.onchange=()=>{ applyTz(o); update(); };
+    ddRow.appendChild(sel);
+    line.appendChild(ddRow);
+
+    div.appendChild(line);
+    o._mode='OFF';
+    o._season='winter';
+    state[o.id]='OFF';
+  } else if(o.custom==='max-num'){
+    const c=document.createElement('div'); c.className='choices';
+    ['Unlimited','Limit'].forEach(mode=>{
+      const l=document.createElement('label');
+      const r=document.createElement('input'); r.type='radio'; r.name=o.id; r.value=mode;
+      if(mode==='Unlimited') r.checked=true;
+      r.onchange=()=>{ o._mode=mode; applyMax(o); update(); refreshMax(o); };
+      const s=document.createElement('span'); s.textContent=mode;
+      l.appendChild(r); l.appendChild(s); c.appendChild(l);
+    });
+    div.appendChild(c);
+    const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
+    const t=document.createElement('input'); t.type='number'; t.min=1; t.max=99; t.value=10; t.id=o.id+'_v'; t.style.width='80px';
+    t.oninput=()=>{ applyMax(o); update(); };
+    line.appendChild(document.createTextNode('Limit (1–99): ')); line.appendChild(t);
+    div.appendChild(line);
+    o._mode='Unlimited';
+    state[o.id]='0';
+  } else if(o.custom==='email'){
+    const line=document.createElement('div'); line.className='inline';
+    const t=document.createElement('input'); t.type='text'; t.placeholder='user@example.com (or leave blank for default)'; t.id=o.id+'_v'; t.style.minWidth='260px';
+    t.oninput=()=>{ state[o.id] = t.value.trim() || o.def; update(); };
+    line.appendChild(document.createTextNode('Address: ')); line.appendChild(t);
+    div.appendChild(line);
+    state[o.id] = o.def;
+  }
+
+  if(o.hint){
+    const h=document.createElement('div'); h.className='hint'; h.textContent=o.hint;
+    div.appendChild(h);
+  }
+  if(o.note){
+    const h=document.createElement('div'); h.className='hint'; h.style.color='var(--warn)';
+    h.textContent='⚠ '+o.note;
+    div.appendChild(h);
+  }
+  container.appendChild(div);
+}
+
+function ordinal(n){return ['st','nd','rd','th','th'][n-1]}
+
+/* -- apply/refresh helpers for custom inputs -- */
+function applyHMS(o){
+  const t=document.getElementById(o.id+'_t').value;
+  state[o.id] = (o._mode==='OFF') ? 'OFF' : (t||'00:00:30');
+}
+function refreshHMS(o){
+  document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='OFF');
+}
+function applyTimer(o){
+  if(o._mode==='OFF'){ state[o.id]='OFF'; return; }
+  const s=document.getElementById(o.id+'_s').value || '08:00';
+  const e=document.getElementById(o.id+'_e').value || '18:00';
+  state[o.id] = s+'-'+e;
+}
+function refreshTimer(o){
+  document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='OFF');
+}
+function applyPicCount(o){
+  let v=0;
+  [1,2,3,4,5].forEach(n=>{
+    const ck=document.getElementById(o.id+'_p'+n);
+    if(ck.checked) v |= (1<<(n-1));
+  });
+  state[o.id] = String(v);
+}
+function applyCamId(o){
+  if(o._mode==='OFF'){ state[o.id]='OFF'; return; }
+  const v=document.getElementById(o.id+'_v').value || '000000000000';
+  state[o.id] = v.padEnd(12,'0').substring(0,12);
+}
+function refreshCamId(o){
+  document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='OFF');
+}
+function applyTz(o){
+  if(o._mode==='OFF'){ state[o.id]='OFF'; return; }
+  const n=parseInt(document.getElementById(o.id+'_v').value||'0',10);
+  state[o.id] = String(n);
+}
+function rebuildTzOptions(o){
+  const sel=document.getElementById(o.id+'_v');
+  if(!sel) return;
+  const prev=sel.value;
+  sel.innerHTML='';
+  const zones = o._season==='summer' ? UTC_ZONES_SUMMER : UTC_ZONES_WINTER;
+  zones.forEach(([hr,cities])=>{
+    const opt=document.createElement('option');
+    opt.value=String(hr*4);
+    const sign = hr>=0 ? '+' : '-';
+    opt.textContent='UTC'+sign+Math.abs(hr)+':00 — '+cities;
+    sel.appendChild(opt);
+  });
+  // Preserve selection if still present; otherwise default to 0
+  const vals=Array.from(sel.options).map(o=>o.value);
+  sel.value = vals.indexOf(prev)>=0 ? prev : '0';
+}
+function refreshTz(o){
+  document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='OFF');
+}
+function applyMax(o){
+  if(o._mode==='Unlimited'){ state[o.id]='0'; return; }
+  const v=parseInt(document.getElementById(o.id+'_v').value||'1',10);
+  state[o.id] = String(Math.max(1,Math.min(99,v)));
+}
+function refreshMax(o){
+  document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='Unlimited');
+}
+
+/* ========= HUMAN-READABLE DESCRIPTION ========= */
+function describeValue(o, val){
+  if(o.locked) return val==='0' ? 'reserved (always 0)' : 'fixed at '+val;
+  if(o.choices){
+    const match = o.choices.find(([l,v]) => v===val);
+    return match ? match[0] : '(unknown: '+val+')';
+  }
+  switch(o.custom){
+    case 'onoff-hms':
+      if(val==='OFF') return 'OFF';
+      return 'ON — every ' + humanHMS(val);
+    case 'onoff-timer':
+      if(val==='OFF') return 'OFF';
+      return 'ON — active ' + val.replace('-', ' to ');
+    case 'piccount': {
+      const n = parseInt(val,10);
+      if(isNaN(n) || n===0) return 'none (no shots sent)';
+      const ord=['1st','2nd','3rd','4th','5th'];
+      const which=[];
+      for(let i=0;i<5;i++) if(n & (1<<i)) which.push(ord[i]);
+      return 'send ' + which.join(', ') + ' shot' + (which.length>1?'s':'');
+    }
+    case 'camera-id':
+      return val==='OFF' ? 'OFF (no ID)' : 'ID = "'+val+'"';
+    case 'timezone': {
+      if(val==='OFF') return 'Manual';
+      const n = parseInt(val,10);
+      if(isNaN(n)) return 'Auto ('+val+')';
+      const h = Math.trunc(n/4), m = Math.abs(n%4)*15;
+      const sign = n<0?'-':'+';
+      return 'Auto — UTC'+sign+Math.abs(h)+':'+String(m).padStart(2,'0');
+    }
+    case 'max-num':
+      return val==='0' ? 'Unlimited' : val+' per day';
+    case 'email':
+      return val;
+  }
+  return val;
+}
+function humanHMS(s){
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(s);
+  if(!m) return s;
+  const h=+m[1], mi=+m[2], se=+(m[3]||0);
+  const parts=[];
+  if(h) parts.push(h+'h');
+  if(mi) parts.push(mi+'m');
+  if(se) parts.push(se+'s');
+  return parts.length ? parts.join(' ') : '0s';
+}
+function valClass(o, val){
+  if(o.locked) return 'off';
+  if(val==='OFF' || val==='0') return 'off';
+  if(o.choices){
+    const match = o.choices.find(([l,v]) => v===val);
+    if(match && /^ON$/i.test(match[0])) return 'on';
+  }
+  return '';
+}
+
+/* ========= SUMMARY (live) ========= */
+function currentSummary(){
+  const t = activeTab();
+  if(t==='pic') return {
+    title:'Trigger',
+    rows:[['Action','Take a photo / video immediately']]
+  };
+  const opts = t==='basic'?BASIC_OPTS : t==='gprs'?GPRS_OPTS : EMAIL_OPTS;
+  const titles = {basic:'Basic settings',gprs:'GPRS settings',email:'Email settings'};
+  const rows = opts
+    .filter(o => !o.locked)
+    .map(o => [o.label, describeValue(o, state[o.id]), valClass(o, state[o.id])]);
+  return {title:titles[t], rows};
+}
+function renderSummary(){
+  const s = currentSummary();
+  const el = document.getElementById('summary');
+  el.innerHTML = '<h4>What the camera will do — ' + s.title + '</h4>' +
+    s.rows.map(([k,v,c])=>
+      '<div class="row2"><span class="k">'+escHtml(k)+'</span>'+
+      '<span class="v '+(c||'')+'">'+escHtml(v)+'</span></div>'
+    ).join('');
+}
+function escHtml(s){
+  return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+/* ========= DECODER ========= */
+function decodeCommand(raw){
+  const s = (raw||'').trim();
+  if(!s) return {error:'Paste a command string above first.'};
+  if(!s.startsWith('$') || !s.endsWith('$'))
+    return {error:'Invalid: command must start and end with "$".'};
+  const body = s.slice(1,-1);
+  const firstHash = body.indexOf('#');
+  const header = firstHash<0 ? body : body.slice(0, firstHash);
+  const rest   = firstHash<0 ? ''   : body.slice(firstHash+1);
+  const parts  = rest === '' ? [] : rest.split('#');
+
+  let opts, title;
+  if(header==='01*27'){ opts=BASIC_OPTS; title='Basic settings ($01)'; }
+  else if(header==='10*13'){ opts=GPRS_OPTS; title='GPRS settings ($10)'; }
+  else if(header==='08*8'){  opts=EMAIL_OPTS; title='Email settings ($08)'; }
+  else if(header==='03*1'){
+    return {title:'Get a Picture ($03)', rows:[['Action','Trigger an immediate photo/video capture']]};
+  } else {
+    return {error:'Unknown command header "'+header+'". Expected 01*27, 10*13, 08*8, or 03*1.'};
+  }
+
+  const rows = [];
+  const expected = opts.length;
+  if(parts.length !== expected){
+    rows.push(['⚠ Warning', 'Expected '+expected+' parameters, got '+parts.length+'.','off']);
+  }
+  opts.forEach((o,i) => {
+    const val = i<parts.length ? parts[i] : '(missing)';
+    rows.push([o.label, describeValue(o, val), valClass(o, val) + (o.locked?' reserved':'')]);
+  });
+  return {title, rows};
+}
+function renderDecoded(res){
+  const out = document.getElementById('decoderOut');
+  if(res.error){
+    out.innerHTML = '<div class="err">'+escHtml(res.error)+'</div>';
+    return;
+  }
+  out.innerHTML = '<h4>'+escHtml(res.title)+'</h4>' +
+    res.rows.map(([k,v,c])=>{
+      const cls = c||'';
+      const rowCls = cls.indexOf('reserved')>=0 ? 'row2 reserved' : 'row2';
+      return '<div class="'+rowCls+'"><span class="k">'+escHtml(k)+'</span>'+
+             '<span class="v '+cls+'">'+escHtml(v)+'</span></div>';
+    }).join('');
+}
+function decode(){
+  const raw = document.getElementById('decoderIn').value;
+  renderDecoded(decodeCommand(raw));
+}
+function decodeCurrent(){
+  const cur = document.getElementById('out').textContent;
+  document.getElementById('decoderIn').value = cur;
+  renderDecoded(decodeCommand(cur));
+}
+function clearDecoder(){
+  document.getElementById('decoderIn').value='';
+  document.getElementById('decoderOut').textContent='—';
+}
+
+/* ========= BUILD + LIVE PREVIEW ========= */
+function buildBasic(){
+  return '$01*27#' + BASIC_OPTS.map(o=>state[o.id]).join('#') + '$';
+}
+function buildGprs(){
+  return '$10*13#' + GPRS_OPTS.map(o=>state[o.id]).join('#') + '$';
+}
+function buildEmail(){
+  return '$08*8#' + EMAIL_OPTS.map(o=>state[o.id]).join('#') + '$';
+}
+function buildPic(){ return '$03*1#1$'; }
+
+function activeTab(){
+  return document.querySelector('.tab.active').dataset.tab;
+}
+function update(){
+  const t=activeTab();
+  let s='';
+  if(t==='basic') s=buildBasic();
+  else if(t==='gprs') s=buildGprs();
+  else if(t==='email') s=buildEmail();
+  else s=buildPic();
+  document.getElementById('out').textContent = s;
+  renderSummary();
+}
+
+function copyOut(){
+  const s=document.getElementById('out').textContent;
+  navigator.clipboard.writeText(s).then(()=>{
+    const btn=event.target; const old=btn.textContent;
+    btn.textContent='Copied!'; setTimeout(()=>btn.textContent=old,1200);
+  });
+}
+function reset(){
+  // Re-render current tab
+  initAll();
+  update();
+}
+function pasteDefault(){
+  const t=activeTab();
+  const defaults = {
+    basic:'$01*27#1#5#2#5#1#2#0#1#0#1#0#7#0#0#OFF#OFF#OFF#OFF#1#0#1#OFF#OFF#0#0#0#0$',
+    gprs :'$10*13#0#0#0#OFF#0#0#1#1#1#0#0#0#0$',
+    email:'$08*8#email1#email2#email3#email4#0#0#0#0$',
+    pic  :'$03*1#1$'
+  };
+  document.getElementById('out').textContent = defaults[t];
+}
+
+/* ========= TAB WIRING ========= */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab).classList.add('active');
+    update();
+  };
+});
+
+/* ========= INIT ========= */
+function initAll(){
+  const b=document.getElementById('basicOpts'); b.innerHTML='';
+  BASIC_OPTS.forEach((o,i)=>renderOpt(o,i,b));
+  const g=document.getElementById('gprsOpts'); g.innerHTML='';
+  GPRS_OPTS.forEach((o,i)=>renderOpt(o,i,g));
+  const e=document.getElementById('emailOpts'); e.innerHTML='';
+  EMAIL_OPTS.forEach((o,i)=>renderOpt(o,i,e));
+}
+initAll();
+update();
+</script>
+</body>
+</html>

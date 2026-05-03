@@ -1,0 +1,52 @@
+{
+  "name": "willfine-sms-builder",
+  "version": "1.0.0",
+  "description": "Offline SMS command builder for Willfine T4.0CG and 4.0CG wildlife cameras",
+  "main": "main.js",
+  "author": "Dimitri",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder -mw"
+  },
+  "devDependencies": {
+    "electron": "^31.7.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.dimitri.willfine-sms-builder",
+    "productName": "Willfine SMS Builder",
+    "files": [
+      "main.js",
+      "index.html",
+      "willfine_T4.0CG.html",
+      "willfine_4.0CG.html",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg",  "arch": ["x64", "arm64"] },
+        { "target": "zip",  "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.utilities",
+      "identity": null
+    },
+    "win": {
+      "target": [
+        { "target": "nsis",     "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  }
+}
