@@ -1,6 +1,6 @@
 # Willfine SMS Builder
 
-[![Download latest release](https://img.shields.io/github/v/release/unilordgr/willfine-sms-builder?label=Download&style=for-the-badge&color=brightgreen)](https://github.com/unilordgr/willfine-sms-builder/releases/latest)
+[![Version](https://img.shields.io/github/v/release/unilordgr/willfine-sms-builder?style=flat-square&color=brightgreen)](https://github.com/unilordgr/willfine-sms-builder/releases/latest)
 
 Offline desktop app for building and decoding SMS commands for Willfine wildlife cameras. No account, no internet, no telemetry — everything runs locally.
 
@@ -17,12 +17,12 @@ Switch between them using the tabs at the top, or via the **File** menu (`Cmd/Ct
 
 ## Download
 
-| OS      | File                                   | Notes |
-|---------|----------------------------------------|-------|
-| macOS   | `Willfine SMS Builder-x.y.z.dmg`       | Universal — Intel and Apple Silicon |
-| macOS   | `Willfine SMS Builder-x.y.z.zip`       | Same app, zipped |
-| Windows | `Willfine SMS Builder Setup x.y.z.exe` | NSIS installer |
-| Windows | `Willfine SMS Builder x.y.z.exe`       | Portable — no install needed |
+| Platform | Installer | Portable |
+|----------|-----------|----------|
+| **macOS** (Intel + Apple Silicon) | [![Mac DMG](https://img.shields.io/badge/Mac-DMG-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.4.dmg) | [![Mac ZIP](https://img.shields.io/badge/Mac-ZIP-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.4-mac.zip) |
+| **Windows** | [![Win Installer](https://img.shields.io/badge/Windows-Installer-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-Setup-1.0.4.exe) | [![Win Portable](https://img.shields.io/badge/Windows-Portable-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.4.exe) |
+
+> All releases are also listed on the [Releases page](https://github.com/unilordgr/willfine-sms-builder/releases/latest).
 
 ### First-run warnings (unsigned)
 
