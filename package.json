@@ -1,6 +1,6 @@
 {
   "name": "willfine-sms-builder",
-  "version": "1.0.5",
+  "version": "1.0.8",
   "description": "Offline SMS command builder for Willfine T4.0CG and 4.0CG wildlife cameras",
   "main": "main.js",
   "author": "Dimitri",
