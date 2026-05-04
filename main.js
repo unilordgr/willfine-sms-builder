@@ -43,7 +43,11 @@ function setupAutoUpdater() {
     autoUpdater.on('update-downloaded', (info) => {
       if (win) win.webContents.send('update-downloaded', info);
     });
-    autoUpdater.checkForUpdates().catch(() => {});
+    // Wait for the renderer to finish loading before checking — otherwise
+    // the update-available event fires before the banner listener is registered.
+    win.webContents.once('did-finish-load', () => {
+      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 2000);
+    });
   } catch (e) {}
 }
 
