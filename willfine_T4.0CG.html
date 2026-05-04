@@ -135,8 +135,11 @@
       <button onclick="copyOut()">Copy</button>
       <button class="ghost" onclick="reset()">Reset to defaults</button>
       <button class="ghost" onclick="pasteDefault()">Insert default string</button>
+      <button class="ghost" onclick="savePreset()">Save preset</button>
+      <button class="ghost" onclick="loadPreset()">Load preset</button>
     </div>
   </div>
+  <input type="file" id="loadFileInput" accept=".json" style="display:none" onchange="onLoadFile(event)">
 
   <div class="cols">
    <div class="maincol">
@@ -748,6 +751,80 @@ function clearDecoder(){
   document.getElementById('decoderOut').textContent='—';
 }
 
+/* ========= STATE PERSISTENCE ========= */
+function applyStateSnapshot(saved){
+  const allOpts=[...BASIC_OPTS,...GPRS_OPTS,...EMAIL_OPTS];
+  allOpts.forEach(o=>{
+    const val=saved[o.id];
+    if(val===undefined||o.locked) return;
+    state[o.id]=val;
+    if(o.choices){
+      document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===val); });
+    } else if(o.custom==='onoff-hms'){
+      const off=val==='OFF';
+      document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===(off?'OFF':'ON')); });
+      o._mode=off?'OFF':'ON';
+      if(!off){ const t=document.getElementById(o.id+'_t'); if(t) t.value=val; }
+      refreshHMS(o);
+    } else if(o.custom==='onoff-timer'){
+      const off=val==='OFF';
+      document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===(off?'OFF':'ON')); });
+      o._mode=off?'OFF':'ON';
+      if(!off){ const [s,e]=val.split('-');
+        const ts=document.getElementById(o.id+'_s'); if(ts) ts.value=s||'08:00';
+        const te=document.getElementById(o.id+'_e'); if(te) te.value=e||'18:00'; }
+      refreshTimer(o);
+    } else if(o.custom==='piccount'){
+      const n=parseInt(val,10)||0;
+      [1,2,3,4,5].forEach(i=>{ const ck=document.getElementById(o.id+'_p'+i); if(ck) ck.checked=!!(n&(1<<(i-1))); });
+    } else if(o.custom==='camera-id'){
+      const off=val==='OFF';
+      document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===(off?'OFF':'ON')); });
+      o._mode=off?'OFF':'ON';
+      if(!off){ const t=document.getElementById(o.id+'_v'); if(t) t.value=val; }
+      refreshCamId(o);
+    } else if(o.custom==='timezone'){
+      const off=val==='OFF';
+      document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===(off?'OFF':'ON')); });
+      o._mode=off?'OFF':'ON';
+      if(!off){ const sel=document.getElementById(o.id+'_v'); if(sel) sel.value=val; }
+      refreshTz(o);
+    } else if(o.custom==='max-num'){
+      const unlim=val==='0';
+      document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===(unlim?'Unlimited':'Limit')); });
+      o._mode=unlim?'Unlimited':'Limit';
+      if(!unlim){ const t=document.getElementById(o.id+'_v'); if(t) t.value=val; }
+      refreshMax(o);
+    } else if(o.custom==='email'){
+      const t=document.getElementById(o.id+'_v');
+      if(t) t.value=(val===o.def)?'':val;
+    }
+  });
+  update();
+}
+
+function savePreset(){
+  const data=JSON.stringify({camera:'T4CG',version:'1.0.4',state},null,2);
+  const a=document.createElement('a');
+  a.href='data:application/json,'+encodeURIComponent(data);
+  a.download='willfine-T4CG-preset.json';
+  a.click();
+}
+function loadPreset(){ document.getElementById('loadFileInput').click(); }
+function onLoadFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d&&d.state){ initAll(); applyStateSnapshot(d.state); }
+      else alert('Invalid preset file.');
+    }catch(err){ alert('Could not read preset file.'); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+}
+
 /* ========= BUILD + LIVE PREVIEW ========= */
 function buildBasic(){
   return '$01*27#' + BASIC_OPTS.map(o=>state[o.id]).join('#') + '$';
@@ -772,6 +849,7 @@ function update(){
   else s=buildPic();
   document.getElementById('out').textContent = s;
   renderSummary();
+  try { localStorage.setItem('willfine_T4CG_state', JSON.stringify(state)); } catch(e){}
 }
 
 function copyOut(){
@@ -818,7 +896,13 @@ function initAll(){
   EMAIL_OPTS.forEach((o,i)=>renderOpt(o,i,e));
 }
 initAll();
-update();
+(function(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('willfine_T4CG_state')||'null');
+    if(saved&&typeof saved==='object'){ applyStateSnapshot(saved); return; }
+  }catch(e){}
+  update();
+})();
 </script>
 </body>
 </html>

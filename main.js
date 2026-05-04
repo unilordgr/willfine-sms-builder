@@ -1,7 +1,4 @@
-// Electron main process for Willfine SMS Builder.
-// Loads the wrapper index.html which lets the user switch between the two camera tools.
-
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
 
 let win;
@@ -18,13 +15,13 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
 
   win.loadFile('index.html');
 
-  // Open external links in the user's default browser, not inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http')) {
       shell.openExternal(url);
@@ -32,6 +29,22 @@ function createWindow() {
     }
     return { action: 'allow' };
   });
+}
+
+function setupAutoUpdater() {
+  if (!app.isPackaged) return;
+  try {
+    const { autoUpdater } = require('electron-updater');
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on('update-available', (info) => {
+      if (win) win.webContents.send('update-available', info);
+    });
+    autoUpdater.on('update-downloaded', (info) => {
+      if (win) win.webContents.send('update-downloaded', info);
+    });
+    autoUpdater.checkForUpdates().catch(() => {});
+  } catch (e) {}
 }
 
 function buildMenu() {
@@ -80,9 +93,15 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+ipcMain.handle('get-version', () => app.getVersion());
+ipcMain.on('install-update', () => {
+  try { require('electron-updater').autoUpdater.quitAndInstall(); } catch (e) {}
+});
+
 app.whenReady().then(() => {
   buildMenu();
   createWindow();
+  setupAutoUpdater();
 });
 
 app.on('window-all-closed', () => {

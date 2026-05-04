@@ -43,9 +43,21 @@
     display:flex;align-items:center;padding:0 18px;
     color:#5a6675;font-size:11px
   }
-  iframe{
-    width:100%;height:calc(100vh - 44px);border:0;display:block;background:#0f1419
+  .update-bar{
+    display:none;align-items:center;gap:10px;padding:0 14px;
+    background:#1a2e1a;border-bottom:1px solid #2a4a2a;
+    font-size:12px;color:#7ed957;height:30px;flex-shrink:0
   }
+  .update-bar.show{display:flex}
+  .update-bar button{
+    background:#4cc9f0;color:#0a1014;border:0;border-radius:4px;
+    padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer
+  }
+  iframe{
+    width:100%;border:0;display:block;background:#0f1419;
+    height:calc(100vh - 44px)
+  }
+  iframe.with-bar{height:calc(100vh - 74px)}
 </style>
 </head>
 <body>
@@ -58,7 +70,11 @@
     4.0CG <span class="pill">older</span>
   </div>
   <div class="spacer"></div>
-  <div class="ver">v1.0.0</div>
+  <div class="ver" id="appVer">v1.0.4</div>
+</div>
+<div class="update-bar" id="updateBar">
+  <span id="updateMsg">Checking for updates…</span>
+  <button id="updateBtn" style="display:none" onclick="installUpdate()">Restart &amp; install</button>
 </div>
 <iframe id="frame" src="willfine_T4.0CG.html" title="SMS builder"></iframe>
 <script>
@@ -71,6 +87,33 @@
       frame.src = t.dataset.src;
     });
   });
+
+  // Version display
+  if (window.electronAPI) {
+    window.electronAPI.getVersion().then(v => {
+      document.getElementById('appVer').textContent = 'v' + v;
+    }).catch(() => {});
+  }
+
+  // Auto-update UI
+  function showBar(msg, showBtn) {
+    const bar = document.getElementById('updateBar');
+    bar.classList.add('show');
+    frame.classList.add('with-bar');
+    document.getElementById('updateMsg').textContent = msg;
+    document.getElementById('updateBtn').style.display = showBtn ? 'inline-block' : 'none';
+  }
+  function installUpdate() {
+    if (window.electronAPI) window.electronAPI.installUpdate();
+  }
+  if (window.electronAPI) {
+    window.electronAPI.onUpdateAvailable(info => {
+      showBar('Update v' + info.version + ' available — downloading…', false);
+    });
+    window.electronAPI.onUpdateDownloaded(info => {
+      showBar('Update v' + info.version + ' ready to install.', true);
+    });
+  }
 </script>
 </body>
 </html>

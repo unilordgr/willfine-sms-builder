@@ -1,8 +1,8 @@
 name: Build Mac + Windows installers
 
 # Triggers:
-#  - push of a tag like v1.0.0  -> builds and attaches installers to a GitHub Release
-#  - manual "Run workflow"      -> builds and uploads installers as workflow artifacts
+#  - push of a tag like v1.0.4  -> builds, publishes a GitHub Release, uploads latest.yml for auto-update
+#  - manual "Run workflow"      -> builds and uploads installers as workflow artifacts (no release)
 on:
   push:
     tags:
@@ -10,7 +10,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write   # needed so the release step can upload assets
+  contents: write
 
 jobs:
   build:
@@ -36,17 +36,19 @@ jobs:
 
       - name: Build (macOS)
         if: matrix.os == 'macos-latest'
-        run: npx electron-builder --mac --publish never
+        run: npx electron-builder --mac --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
         env:
-          # No code signing for personal use — keeps the build green without certs.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload macOS artifacts
-        if: matrix.os == 'macos-latest'
+      - name: Upload macOS artifacts (manual run)
+        if: matrix.os == 'macos-latest' && !startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: mac-installers
@@ -54,24 +56,9 @@ jobs:
             dist/*.dmg
             dist/*.zip
 
-      - name: Upload Windows artifacts
-        if: matrix.os == 'windows-latest'
+      - name: Upload Windows artifacts (manual run)
+        if: matrix.os == 'windows-latest' && !startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
           name: windows-installers
-          path: |
-            dist/*Setup*.exe
-            dist/*Portable*.exe
-            dist/*.exe
-
-      - name: Attach to GitHub Release (on tag)
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.exe
-          fail_on_unmatched_files: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: dist/*.exe

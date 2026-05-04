@@ -1,6 +1,6 @@
 {
   "name": "willfine-sms-builder",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Offline SMS command builder for Willfine T4.0CG and 4.0CG wildlife cameras",
   "main": "main.js",
   "author": "Dimitri",
@@ -12,6 +12,9 @@
     "build:win": "electron-builder --win",
     "build:all": "electron-builder -mw"
   },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
   "devDependencies": {
     "electron": "^41.5.0",
     "electron-builder": "^25.1.8"
@@ -21,11 +24,17 @@
     "productName": "Willfine SMS Builder",
     "files": [
       "main.js",
+      "preload.js",
       "index.html",
       "willfine_T4.0CG.html",
       "willfine_4.0CG.html",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "unilordgr",
+      "repo": "willfine-sms-builder"
+    },
     "directories": {
       "output": "dist"
     },
