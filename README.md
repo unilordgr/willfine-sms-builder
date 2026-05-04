@@ -19,8 +19,8 @@ Switch between them using the tabs at the top, or via the **File** menu (`Cmd/Ct
 
 | Platform | Installer | Portable |
 |----------|-----------|----------|
-| **macOS** (Intel + Apple Silicon) | [![Mac DMG](https://img.shields.io/badge/Mac-DMG-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.4.dmg) | [![Mac ZIP](https://img.shields.io/badge/Mac-ZIP-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.4-mac.zip) |
-| **Windows** | [![Win Installer](https://img.shields.io/badge/Windows-Installer-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-Setup-1.0.4.exe) | [![Win Portable](https://img.shields.io/badge/Windows-Portable-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.4.exe) |
+| **macOS** (Intel + Apple Silicon) | [![Mac DMG](https://img.shields.io/badge/Mac-DMG-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.8.dmg) | [![Mac ZIP](https://img.shields.io/badge/Mac-ZIP-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.8-mac.zip) |
+| **Windows** | [![Win Installer](https://img.shields.io/badge/Windows-Installer-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-Setup-1.0.8.exe) | [![Win Portable](https://img.shields.io/badge/Windows-Portable-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.8.exe) |
 
 > All releases are also listed on the [Releases page](https://github.com/unilordgr/willfine-sms-builder/releases/latest).
 
@@ -158,11 +158,11 @@ The two `willfine_*.html` files are self-contained — you can open them directl
 ```bash
 git add .
 git commit -m "your changes"
-git tag v1.0.3
+git tag v1.0.x          # bump the patch number; must match version in package.json
 git push origin main --tags
 ```
 
-GitHub Actions builds the macOS and Windows installers automatically and attaches them to the release. The download badge on this page updates to the new version.
+GitHub Actions builds the macOS and Windows installers automatically, attaches them to the release, and marks it as published. The download badges on this page update to the new version. Installed copies receive an in-app update prompt automatically.
 
 To trigger a build without creating a release, go to **Actions → Build Mac + Windows installers → Run workflow**. Installers appear as artifacts under the run (kept 90 days).
 
