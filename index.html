@@ -19,7 +19,7 @@
   }
   .brand .dot{
     display:inline-block;width:8px;height:8px;border-radius:50%;
-    background:linear-gradient(135deg,#4cc9f0 0%,#ff9933 100%);
+    background:linear-gradient(135deg,#4cc9f0 0%,#52e8a0 50%,#ff9933 100%);
     margin-right:8px
   }
   .tab{
@@ -30,6 +30,7 @@
   .tab:hover{color:#e6edf3}
   .tab.active{color:#e6edf3}
   .tab[data-tab="newer"].active{border-bottom-color:#4cc9f0}
+  .tab[data-tab="mid"].active{border-bottom-color:#52e8a0}
   .tab[data-tab="older"].active{border-bottom-color:#ff9933}
   .tab .pill{
     display:inline-block;font-size:10px;font-weight:600;
@@ -37,6 +38,7 @@
     text-transform:uppercase;letter-spacing:.05em
   }
   .tab[data-tab="newer"] .pill{background:rgba(76,201,240,.15);color:#4cc9f0}
+  .tab[data-tab="mid"]   .pill{background:rgba(82,232,160,.15);color:#52e8a0}
   .tab[data-tab="older"] .pill{background:rgba(255,153,51,.15);color:#ff9933}
   .spacer{flex:1}
   .ver{
@@ -64,10 +66,13 @@
 <div class="switcher">
   <div class="brand"><span class="dot"></span>Willfine SMS Builder</div>
   <div class="tab active" data-tab="newer" data-src="willfine_T4.0CG.html">
-    T4.0CG <span class="pill">newer</span>
+    T4.0CG <span class="pill">new</span>
+  </div>
+  <div class="tab" data-tab="mid" data-src="willfine_4.0P.html">
+    4.0P <span class="pill">PNY</span>
   </div>
   <div class="tab" data-tab="older" data-src="willfine_4.0CG.html">
-    4.0CG <span class="pill">older</span>
+    4.0CG <span class="pill">Pro</span>
   </div>
   <div class="spacer"></div>
   <div class="ver" id="appVer">v1.0.4</div>
