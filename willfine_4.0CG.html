@@ -310,7 +310,7 @@ const BASIC_OPTS = [
   { id:'b21', label:'picCount (which shots to send)', def:'1', custom:'piccount',
       hint:'Bitmask: tick each shot you want sent (1st=1, 2nd=2, 3rd=4, 4th=8, 5th=16)' },
   { id:'b22', label:'Camera ID',          def:'OFF', custom:'camera-id',
-      hint:'Exactly 12 characters (letters/numbers), or OFF' },
+      hint:'Exactly 12 digits (numbers 0–9 only — the camera rejects letters), or OFF' },
   { id:'b23', label:'Time Zone',          def:'OFF', custom:'timezone',
       hint:'Manual keeps whatever the camera already has set. Auto syncs the camera clock. Pick the season first — the city list below updates to show each zone\'s true offset for that time of year.' },
   { id:'b24', label:'Reserved 24', def:'0', locked:true, hint:'Reserved slot — fixed at 0.' },
@@ -471,9 +471,14 @@ function renderOpt(o, idx, container){
     });
     div.appendChild(c);
     const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
-    const t=document.createElement('input'); t.type='text'; t.maxLength=12; t.placeholder='e.g. CAM001ABCDEF'; t.id=o.id+'_v';
-    t.oninput=()=>{ applyCamId(o); update(); };
-    line.appendChild(document.createTextNode('ID (12 chars): ')); line.appendChild(t);
+    const t=document.createElement('input'); t.type='text'; t.maxLength=12; t.placeholder='e.g. 001234567890'; t.id=o.id+'_v';
+    t.inputMode='numeric'; t.pattern='[0-9]*';
+    t.oninput=()=>{
+      const cleaned=t.value.replace(/\D/g,'');
+      if(t.value!==cleaned) t.value=cleaned;
+      applyCamId(o); update();
+    };
+    line.appendChild(document.createTextNode('ID (12 digits): ')); line.appendChild(t);
     div.appendChild(line);
     o._mode='OFF';
     state[o.id]='OFF';
