@@ -489,6 +489,38 @@ function renderOpt(o, idx, container){
     });
     div.appendChild(c);
 
+    // Manual date/time block (visible when Manual is selected)
+    const manualBlock=document.createElement('div'); manualBlock.className='inline'; manualBlock.id=o.id+'_manual';
+    manualBlock.style.flexDirection='column'; manualBlock.style.alignItems='flex-start'; manualBlock.style.gap='8px';
+
+    const dRow=document.createElement('div'); dRow.style.display='flex';
+    dRow.style.alignItems='center'; dRow.style.gap='8px'; dRow.style.flexWrap='wrap';
+    dRow.appendChild(document.createTextNode('Date:'));
+    const dInp=document.createElement('input'); dInp.type='date'; dInp.id=o.id+'_d';
+    const today=new Date(); const yyyy=today.getFullYear();
+    const mm=String(today.getMonth()+1).padStart(2,'0');
+    const dd=String(today.getDate()).padStart(2,'0');
+    dInp.value=yyyy+'-'+mm+'-'+dd;
+    dInp.oninput=()=>{ applyTz(o); update(); };
+    dRow.appendChild(dInp);
+    manualBlock.appendChild(dRow);
+
+    const tRow=document.createElement('div'); tRow.style.display='flex';
+    tRow.style.alignItems='center'; tRow.style.gap='8px'; tRow.style.flexWrap='wrap';
+    tRow.appendChild(document.createTextNode('Time:'));
+    const tInp=document.createElement('input'); tInp.type='time'; tInp.step='1'; tInp.id=o.id+'_tm';
+    tInp.value='12:00:00';
+    tInp.oninput=()=>{ applyTz(o); update(); };
+    tRow.appendChild(tInp);
+    manualBlock.appendChild(tRow);
+
+    const note=document.createElement('div'); note.className='hint';
+    note.textContent='Date/time entered here is a reminder — the SMS protocol field stays "OFF". Set this exact value on the camera itself.';
+    manualBlock.appendChild(note);
+
+    div.appendChild(manualBlock);
+
+    // Auto block (season + UTC dropdown, visible when Auto is selected)
     const line=document.createElement('div'); line.className='inline hidden'; line.id=o.id+'_in';
     line.style.flexDirection='column'; line.style.alignItems='flex-start'; line.style.gap='8px';
 
@@ -536,6 +568,8 @@ function renderOpt(o, idx, container){
     o._mode='OFF';
     o._season='winter';
     state[o.id]='OFF';
+    state[o.id+'_manualDate']=dInp.value;
+    state[o.id+'_manualTime']=tInp.value;
   } else if(o.custom==='max-num'){
     const c=document.createElement('div'); c.className='choices';
     ['Unlimited','Limit'].forEach(mode=>{
@@ -626,6 +660,10 @@ function refreshCamId(o){
   document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='OFF');
 }
 function applyTz(o){
+  const dEl=document.getElementById(o.id+'_d');
+  const tEl=document.getElementById(o.id+'_tm');
+  if(dEl) state[o.id+'_manualDate']=dEl.value;
+  if(tEl) state[o.id+'_manualTime']=tEl.value;
   if(o._mode==='OFF'){ state[o.id]='OFF'; return; }
   const n=parseInt(document.getElementById(o.id+'_v').value||'0',10);
   state[o.id] = String(n);
@@ -648,6 +686,8 @@ function rebuildTzOptions(o){
 }
 function refreshTz(o){
   document.getElementById(o.id+'_in').classList.toggle('hidden', o._mode==='OFF');
+  const m=document.getElementById(o.id+'_manual');
+  if(m) m.classList.toggle('hidden', o._mode!=='OFF');
 }
 function applyMax(o){
   if(o._mode==='Unlimited'){ state[o.id]='0'; return; }
@@ -686,7 +726,11 @@ function describeValue(o, val){
     case 'camera-id':
       return val==='OFF' ? 'OFF (no ID)' : 'ID = "'+val+'"';
     case 'timezone': {
-      if(val==='OFF') return 'Manual';
+      if(val==='OFF'){
+        const d=state[o.id+'_manualDate'], t=state[o.id+'_manualTime'];
+        if(d && t) return 'Manual — set camera to '+d+' '+t;
+        return 'Manual';
+      }
       const n = parseInt(val,10);
       if(isNaN(n)) return 'Auto ('+val+')';
       const h = Math.trunc(n/4), m = Math.abs(n%4)*15;
@@ -856,6 +900,9 @@ function applyStateSnapshot(saved){
       document.querySelectorAll(`input[name="${o.id}"]`).forEach(r=>{ r.checked=(r.value===(off?'OFF':'ON')); });
       o._mode=off?'OFF':'ON';
       if(!off){ const sel=document.getElementById(o.id+'_v'); if(sel) sel.value=val; }
+      const sd=saved[o.id+'_manualDate'], st=saved[o.id+'_manualTime'];
+      if(sd){ const d=document.getElementById(o.id+'_d'); if(d) d.value=sd; state[o.id+'_manualDate']=sd; }
+      if(st){ const t=document.getElementById(o.id+'_tm'); if(t) t.value=st; state[o.id+'_manualTime']=st; }
       refreshTz(o);
     } else if(o.custom==='max-num'){
       const unlim=val==='0';
