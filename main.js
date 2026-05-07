@@ -31,12 +31,16 @@ function createWindow() {
   });
 }
 
+let updaterRef = null;
+
 function setupAutoUpdater() {
   if (!app.isPackaged) return;
   try {
     const { autoUpdater } = require('electron-updater');
+    updaterRef = autoUpdater;
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on('error', (err) => console.error('[autoUpdater]', err));
     autoUpdater.on('update-available', (info) => {
       if (win) win.webContents.send('update-available', info);
     });
@@ -46,9 +50,11 @@ function setupAutoUpdater() {
     // Wait for the renderer to finish loading before checking — otherwise
     // the update-available event fires before the banner listener is registered.
     win.webContents.once('did-finish-load', () => {
-      setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 2000);
+      setTimeout(() => autoUpdater.checkForUpdates().catch((e) => console.error('[autoUpdater] check failed', e)), 2000);
     });
-  } catch (e) {}
+  } catch (e) {
+    console.error('[autoUpdater] setup failed', e);
+  }
 }
 
 function buildMenu() {
@@ -99,7 +105,21 @@ function buildMenu() {
 
 ipcMain.handle('get-version', () => app.getVersion());
 ipcMain.on('install-update', () => {
-  try { require('electron-updater').autoUpdater.quitAndInstall(); } catch (e) {}
+  if (!updaterRef) return;
+  // Defer so the IPC handler returns before we tear the app down. Remove the
+  // window-all-closed listener (Mac keeps the app alive otherwise) and force
+  // relaunch via the second arg, which is required for unsigned macOS apps.
+  setImmediate(() => {
+    try {
+      app.removeAllListeners('window-all-closed');
+      BrowserWindow.getAllWindows().forEach(w => {
+        try { w.removeAllListeners('close'); } catch (e) {}
+      });
+      updaterRef.quitAndInstall(false, true);
+    } catch (e) {
+      console.error('[autoUpdater] quitAndInstall failed', e);
+    }
+  });
 });
 
 app.whenReady().then(() => {
