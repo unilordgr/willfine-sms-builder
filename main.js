@@ -209,8 +209,8 @@ function buildMenu() {
       submenu: [
         { label: 'Home (pick a camera)', accelerator: 'CmdOrCtrl+H', click: () => win && win.loadFile('index.html') },
         { label: 'Open T4.0CG New', accelerator: 'CmdOrCtrl+1', click: () => win && win.loadFile('willfine_T4.0CG.html') },
-        { label: 'Open 4.0P PNY', accelerator: 'CmdOrCtrl+2', click: () => win && win.loadFile('willfine_4.0P.html') },
-        { label: 'Open 4.0CG Pro', accelerator: 'CmdOrCtrl+3', click: () => win && win.loadFile('willfine_4.0CG.html') },
+        { label: 'Open 4.0P Pro', accelerator: 'CmdOrCtrl+2', click: () => win && win.loadFile('willfine_4.0P.html') },
+        { label: 'Open 4.0CG PNY', accelerator: 'CmdOrCtrl+3', click: () => win && win.loadFile('willfine_4.0CG.html') },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
