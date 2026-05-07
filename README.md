@@ -19,8 +19,8 @@ Switch between them using the tabs at the top, or via the **File** menu (`Cmd/Ct
 
 | Platform | Installer | Portable |
 |----------|-----------|----------|
-| **macOS** (Intel + Apple Silicon) | [![Mac DMG](https://img.shields.io/badge/Mac-DMG-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.14.dmg) | [![Mac ZIP](https://img.shields.io/badge/Mac-ZIP-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.14-mac.zip) |
-| **Windows** | [![Win Installer](https://img.shields.io/badge/Windows-Installer-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-Setup-1.0.14.exe) | [![Win Portable](https://img.shields.io/badge/Windows-Portable-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.14.exe) |
+| **macOS** (Intel + Apple Silicon) | [![Mac DMG](https://img.shields.io/badge/Mac-DMG-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.15.dmg) | [![Mac ZIP](https://img.shields.io/badge/Mac-ZIP-blue?style=for-the-badge&logo=apple)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.15-mac.zip) |
+| **Windows** | [![Win Installer](https://img.shields.io/badge/Windows-Installer-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-Setup-1.0.15.exe) | [![Win Portable](https://img.shields.io/badge/Windows-Portable-0078d4?style=for-the-badge&logo=windows)](https://github.com/unilordgr/willfine-sms-builder/releases/latest/download/Willfine-SMS-Builder-1.0.15.exe) |
 
 > All releases are also listed on the [Releases page](https://github.com/unilordgr/willfine-sms-builder/releases/latest).
 

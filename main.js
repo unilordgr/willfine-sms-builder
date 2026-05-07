@@ -100,6 +100,24 @@ async function downloadInBackground(releaseData) {
   } catch (e) {
     console.log('[update] download failed:', e.message);
     if (win) win.webContents.send('update-status', { state: 'error', message: e.message });
+    return;
+  }
+
+  // Prompt the user to restart immediately
+  if (win) win.focus();
+  const choice = await dialog.showMessageBox(win, {
+    type: 'info',
+    title: 'Download Finished',
+    message: `Willfine SMS Builder ${releaseData.tag_name} is ready to install`,
+    detail: 'Restart the app now to apply the update, or do it later — it will also install automatically the next time you close the app.',
+    buttons: ['Restart now', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+
+  if (choice.response === 0) {
+    maybeInstallPendingUpdate();
+    setTimeout(() => app.quit(), 200);
   }
 }
 
@@ -163,35 +181,78 @@ function installMac(dmgPath) {
     if (bundle.endsWith('.app')) targetApp = bundle;
   }
   const mountPoint = path.join(os.tmpdir(), 'willfine-update-mount');
+  const logFile = path.join(os.tmpdir(), 'willfine-update.log');
+  const scriptPath = path.join(os.tmpdir(), 'willfine-update.sh');
+  const parentPid = process.pid;
 
-  // Detached shell script — survives the parent quitting. Strips quarantine
-  // off the new bundle, replaces the existing .app in place, unmounts and
-  // deletes the DMG, then relaunches the new version.
-  const cmd = [
-    `hdiutil detach "${mountPoint}" -force -quiet >/dev/null 2>&1 || true`,
-    `rm -rf "${mountPoint}"`,
-    `mkdir -p "${mountPoint}"`,
-    `hdiutil attach "${dmgPath}" -nobrowse -quiet -mountpoint "${mountPoint}"`,
-    `sleep 1`,
-    `xattr -r -d com.apple.quarantine "${mountPoint}/${appName}" >/dev/null 2>&1 || true`,
-    `rm -rf "${targetApp}"`,
-    `cp -R "${mountPoint}/${appName}" "${targetApp}"`,
-    `xattr -r -d com.apple.quarantine "${targetApp}" >/dev/null 2>&1 || true`,
-    `hdiutil detach "${mountPoint}" -quiet >/dev/null 2>&1 || true`,
-    `rm -f "${dmgPath}"`,
-    `open "${targetApp}"`
-  ].join(' && ');
-
-  spawn('/bin/sh', ['-c', cmd], { detached: true, stdio: 'ignore' }).unref();
+  const script = `#!/bin/sh
+exec >>"${logFile}" 2>&1
+echo ""
+echo "=== $(date) starting update for v${pendingUpdate.version} ==="
+echo "Parent PID: ${parentPid} — waiting for it to exit..."
+i=0
+while kill -0 ${parentPid} 2>/dev/null; do
+  i=$((i+1))
+  if [ $i -gt 60 ]; then echo "Timeout waiting for parent — proceeding anyway"; break; fi
+  sleep 0.5
+done
+echo "Parent exited. Mounting DMG: ${dmgPath}"
+hdiutil detach "${mountPoint}" -force -quiet >/dev/null 2>&1 || true
+rm -rf "${mountPoint}"
+mkdir -p "${mountPoint}"
+if ! hdiutil attach "${dmgPath}" -nobrowse -quiet -mountpoint "${mountPoint}"; then
+  echo "ERROR: hdiutil attach failed — opening DMG manually"
+  open "${dmgPath}"
+  exit 1
+fi
+sleep 1
+if [ ! -d "${mountPoint}/${appName}" ]; then
+  echo "ERROR: app bundle not found at ${mountPoint}/${appName}"
+  ls -la "${mountPoint}"
+  hdiutil detach "${mountPoint}" -force -quiet >/dev/null 2>&1
+  open "${dmgPath}"
+  exit 1
+fi
+echo "Stripping quarantine on new bundle..."
+xattr -r -d com.apple.quarantine "${mountPoint}/${appName}" >/dev/null 2>&1 || true
+echo "Removing old app: ${targetApp}"
+rm -rf "${targetApp}"
+echo "Copying new app into place..."
+if ! cp -R "${mountPoint}/${appName}" "${targetApp}"; then
+  echo "ERROR: cp failed"
+  hdiutil detach "${mountPoint}" -force -quiet >/dev/null 2>&1
+  open "${dmgPath}"
+  exit 1
+fi
+xattr -r -d com.apple.quarantine "${targetApp}" >/dev/null 2>&1 || true
+echo "Detaching DMG and cleaning up..."
+hdiutil detach "${mountPoint}" -quiet >/dev/null 2>&1 || true
+rm -f "${dmgPath}"
+echo "Relaunching from ${targetApp}"
+open "${targetApp}"
+echo "=== $(date) update complete ==="
+`;
+  fs.writeFileSync(scriptPath, script, { mode: 0o755 });
+  spawn('/bin/sh', [scriptPath], { detached: true, stdio: 'ignore' }).unref();
 }
 
 function installWindows(setupPath) {
-  // Wait briefly for the app to release locks, then run NSIS installer silently
-  // and relaunch. The bat self-deletes when done.
+  const logFile = path.join(os.tmpdir(), 'willfine-update.log');
   const batPath = path.join(os.tmpdir(), 'willfine-update.bat');
+  const parentPid = process.pid;
   const bat = `@echo off
-timeout /t 3 /nobreak >nul
-"${setupPath}" /S
+echo. >>"${logFile}"
+echo === %DATE% %TIME% starting update === >>"${logFile}"
+echo Waiting for PID ${parentPid} to exit... >>"${logFile}"
+:wait
+tasklist /FI "PID eq ${parentPid}" 2>nul | find "${parentPid}" >nul
+if not errorlevel 1 (
+  timeout /t 1 /nobreak >nul
+  goto wait
+)
+echo Parent exited. Running installer... >>"${logFile}"
+"${setupPath}" /S >>"${logFile}" 2>&1
+echo Installer finished, cleaning up. >>"${logFile}"
 del "${setupPath}" >nul 2>&1
 del "%~f0" >nul 2>&1
 `;
