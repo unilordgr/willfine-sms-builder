@@ -73,8 +73,7 @@
   <div class="ver" id="appVer">v1.0.4</div>
 </div>
 <div class="update-bar" id="updateBar">
-  <span id="updateMsg">Checking for updates…</span>
-  <button id="updateBtn" style="display:none" onclick="installUpdate()">Restart &amp; install</button>
+  <span id="updateMsg"></span>
 </div>
 <iframe id="frame" src="willfine_T4.0CG.html" title="SMS builder"></iframe>
 <script>
@@ -95,23 +94,18 @@
     }).catch(() => {});
   }
 
-  // Auto-update UI
-  function showBar(msg, showBtn) {
+  // Auto-update status — info-only, install happens on app close
+  function showBar(msg) {
     const bar = document.getElementById('updateBar');
     bar.classList.add('show');
     frame.classList.add('with-bar');
     document.getElementById('updateMsg').textContent = msg;
-    document.getElementById('updateBtn').style.display = showBtn ? 'inline-block' : 'none';
   }
-  function installUpdate() {
-    if (window.electronAPI) window.electronAPI.installUpdate();
-  }
-  if (window.electronAPI) {
-    window.electronAPI.onUpdateAvailable(info => {
-      showBar('Update v' + info.version + ' available — downloading…', false);
-    });
-    window.electronAPI.onUpdateDownloaded(info => {
-      showBar('Update v' + info.version + ' ready to install.', true);
+  if (window.electronAPI && window.electronAPI.onUpdateStatus) {
+    window.electronAPI.onUpdateStatus(info => {
+      if (info.state === 'downloading') showBar('Downloading update ' + info.version + '…');
+      else if (info.state === 'ready')  showBar('Update ' + info.version + ' will install when you close the app.');
+      else if (info.state === 'error')  showBar('Update download failed: ' + info.message);
     });
   }
 </script>
