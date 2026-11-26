@@ -602,7 +602,8 @@ async function openScanner() {
   $('#scanModal').classList.add('show'); setCode(''); $('#code').focus();
   $('#scanLbl').textContent = 'Starting camera…';
   try {
-    if (API && API.cameraAccess && !(await API.cameraAccess())) throw new Error('Camera access is off. Allow it in System Settings → Privacy & Security → Camera.');
+    // Triggers the macOS permission prompt on first use; the webcam call below gives the real answer.
+    if (API && API.cameraAccess) { try { await API.cameraAccess(); } catch (_) {} }
     const hints = new Map();
     hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.ITF, ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX]);
     hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
@@ -612,7 +613,7 @@ async function openScanner() {
     devices.forEach(d => sel.append(el('option', { value: d.deviceId }, d.label || 'Camera')));
     if (!devices.length) throw new Error('No webcam found. Type the number or use a photo.');
     startStream(sel.value);
-  } catch (e) { $('#scanLbl').textContent = e.message; }
+  } catch (e) { $('#scanLbl').textContent = e && e.name && e.name !== 'Error' ? cameraErrorText(e) : (e.message || cameraErrorText(e)); }
 }
 function startStream(deviceId) {
   if (!reader) return;
@@ -622,7 +623,14 @@ function startStream(deviceId) {
     if (!res) return;
     const d = digits(res.getText());
     if (d.length >= ID_DIGITS && d !== scanCode) { setCode(d); $('#scanLbl').textContent = '✓ Read ' + d; try { new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); } catch (_) {} }
-  }).catch(e => { $('#scanLbl').textContent = 'Camera error: ' + e.message; });
+  }).catch(e => { $('#scanLbl').textContent = cameraErrorText(e); });
+}
+function cameraErrorText(e) {
+  const n = (e && e.name) || '';
+  if (n === 'NotAllowedError') return 'Camera blocked. Allow "Willfine SMS Builder" in System Settings → Privacy & Security → Camera, then reopen the app.';
+  if (n === 'NotReadableError') return 'The camera is in use by another app (Zoom, FaceTime…). Close it and try again.';
+  if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'No usable webcam found. Type the number or use a photo.';
+  return 'Camera error: ' + ((e && e.message) || n || 'unknown') + '. Type the number or use a photo.';
 }
 function closeScanner() { if (reader) { reader.reset(); reader = null; } $('#scanModal').classList.remove('show'); }
 async function decodeImageFile(file) {
