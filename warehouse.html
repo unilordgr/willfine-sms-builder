@@ -138,6 +138,7 @@
 </div>
 
 <script src="sdcard/models.js"></script>
+<script src="sdcard/model-fixes.js"></script>
 <script src="sdcard/codec.js"></script>
 <script src="sdcard/vendor/zxing.min.js"></script>
 <script>
@@ -175,6 +176,22 @@ let selId = null, curTab = 1;
 async function loadDB() {
   if (API) DB = await API.whLoad();
   else { try { DB = JSON.parse(localStorage.getItem('wf_warehouse')) || DB; } catch (_) {} }
+  if (migrateDB()) saveDB();
+}
+// T4.0CG photo-size options were stored in the Windows tool's order (32M,24M,12M,8M,5M);
+// they are now in the camera's menu order. Keep what the user picked (by its label).
+function migrateDB() {
+  const OLD_T_IMG = ['32M', '24M', '12M', '8M', '5M'];
+  let changed = false;
+  const fixT = s => {
+    if (!s || typeof s.cbImageSize !== 'number') return;
+    const i = MODELS['T4.0CG'].labels.cbImageSize.indexOf(OLD_T_IMG[s.cbImageSize]);
+    if (i >= 0) s.cbImageSize = i;
+  };
+  for (const c of DB.cameras) if (c.model === 'T4.0CG' && (c.fixVersion || 1) < 2) { fixT(c.settings); c.fixVersion = 2; changed = true; }
+  const d = (DB.defaults || {})['T4.0CG'];
+  if (d && (d.fixVersion || 1) < 2) { fixT(d.settings); d.fixVersion = 2; changed = true; }
+  return changed;
 }
 // Every change is written to disk straight away (in order), so nothing is lost when
 // switching tabs, quitting or updating the app.
@@ -208,7 +225,7 @@ function saveDefaults() {
   DB.defaults = DB.defaults || {};
   const had = !!DB.defaults[c.model];
   if (had && !confirm('Replace the saved ' + MODELS[c.model].name + ' defaults with the settings of "' + c.name + '"?')) return;
-  DB.defaults[c.model] = { settings, modify: c.modify, pwFormat: c.pwFormat || 'A', from: c.name, savedAt: Date.now() };
+  DB.defaults[c.model] = { settings, modify: c.modify, pwFormat: c.pwFormat || 'A', from: c.name, savedAt: Date.now(), fixVersion: MODELS[c.model].fixVersion || 1 };
   saveDB(); renderMain();
   flash('ok', 'Saved "' + c.name + '" as the ' + MODELS[c.model].name + ' defaults (everything except FTP user and Camera ID).');
 }
@@ -227,7 +244,7 @@ function newCamera({ imei = '', cameraId = '', model = DEFAULT_MODEL, name } = {
   const n = DB.cameras.length + 1;
   return {
     id: uid(), name: name || ('Camera ' + String(n).padStart(2, '0')),
-    imei, cameraId, model, modify: 7, settings, notes: '',
+    imei, cameraId, model, modify: 7, settings, notes: '', fixVersion: MODELS[model].fixVersion || 1,
     createdAt: Date.now(), updatedAt: Date.now(), lastWrite: null,
   };
 }
@@ -239,7 +256,7 @@ function switchModel(c, model) {
     const k = CODEC.ctlKey(f);
     out[k] = (k in c.settings && valid(m, f, c.settings[k])) ? c.settings[k] : d[k];
   }
-  c.model = model; c.settings = out;
+  c.model = model; c.settings = out; c.fixVersion = m.fixVersion || 1;
 }
 function valid(m, f, v) {
   if (f.kind === 'select') return Number.isInteger(v) && v >= 0 && (!m.labels[f.ctl] || v < m.labels[f.ctl].length || f.ctl === 'cbOperators');
@@ -590,6 +607,7 @@ function applyBytes(c, bytes, sourceName) {
   const d = CODEC.decode(MODELS[key], bytes);
   if (key !== c.model && !confirm('This config is for ' + MODELS[key].name + ', but "' + c.name + '" is set as ' + MODELS[c.model].name + '. Change the camera type?')) return false;
   c.model = key; c.settings = d.values; c.modify = d.modify || 7;
+  c.fixVersion = MODELS[key].fixVersion || 1;
   // A camera keeps its own ID even when it loads another camera's file as a template.
   if (c.cameraId) c.settings.tbCameraID = c.cameraId;
   else if (d.values.tbCameraID) c.cameraId = d.values.tbCameraID;
@@ -648,7 +666,7 @@ function copyFrom() {
   const list = others.map((x, i) => (i + 1) + '. ' + x.name + ' (' + x.model + ')').join('\n');
   const n = parseInt(prompt('Copy all settings (except Camera ID) from which camera?\n\n' + list), 10);
   const src = others[n - 1]; if (!src) return;
-  c.model = src.model; c.modify = src.modify; c.settings = clone(src.settings);
+  c.model = src.model; c.modify = src.modify; c.settings = clone(src.settings); c.fixVersion = src.fixVersion || 1;
   c.settings.tbCameraID = c.cameraId; c.updatedAt = Date.now(); saveDB(); renderList(); renderMain();
   flash('ok', 'Copied settings from "' + src.name + '". Camera ID kept as ' + (c.cameraId || '—') + '.');
 }

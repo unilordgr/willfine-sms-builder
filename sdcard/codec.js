@@ -83,7 +83,12 @@
       const v = values[k];
       let bytes;
       switch (f.kind) {
-        case 'select': bytes = [(v | 0) & 0xff]; break;
+        case 'select': {
+          // Some options are stored as a different number than their menu position (see model-fixes.js).
+          const i = v | 0;
+          bytes = [(f.map ? (f.map[i] != null ? f.map[i] : f.map[0]) : i) & 0xff];
+          break;
+        }
         case 'check': {
           let b = v ? f.checked_value : 1 - f.checked_value;
           // Password-format experiment: some firmware reads the password switch inverted.
@@ -164,7 +169,16 @@
       const b0 = raw[0];
       const k = ctlKey(f);
       switch (f.kind) {
-        case 'select': case 'radio': case 'tobyte': values[k] = b0; break;
+        case 'select':
+          if (f.map) {
+            let i = f.map.indexOf(b0);
+            if (i < 0) { // out-of-range value: pick the nearest valid option
+              i = f.map.reduce((best, m, j) => Math.abs(m - b0) < Math.abs(f.map[best] - b0) ? j : best, 0);
+            }
+            values[k] = i;
+          } else values[k] = b0;
+          break;
+        case 'radio': case 'tobyte': values[k] = b0; break;
         case 'check': values[k] = b0 === f.checked_value; break;
         case 'max': values[k] = b0 === 0 ? { unlimited: true, value: 1 } : { unlimited: false, value: b0 }; break;
         case 'bits': values[k] = b0; break;
