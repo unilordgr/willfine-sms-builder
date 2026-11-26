@@ -16,4 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportJson: (text, name) => ipcRenderer.invoke('file:exportJson', text, name),
   importJson: () => ipcRenderer.invoke('file:importJson'),
   cameraAccess: () => ipcRenderer.invoke('cam:access'),
+  ocrAvailable: () => ipcRenderer.invoke('ocr:available'),
+  ocrRead: (bytes) => ipcRenderer.invoke('ocr:read', bytes),
 });

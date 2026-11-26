@@ -60,7 +60,13 @@
       "identity": null,
       "extendInfo": {
         "NSCameraUsageDescription": "The camera is used to scan the barcode (IMEI) on your trail cameras."
-      }
+      },
+      "extraResources": [
+        {
+          "from": "ocr/bin/wfocr",
+          "to": "ocr/wfocr"
+        }
+      ]
     },
     "win": {
       "target": [

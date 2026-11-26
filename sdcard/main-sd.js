@@ -100,7 +100,51 @@ async function checkVolume(vol) {
   return v;
 }
 
+// ── OCR (macOS Vision via the bundled "wfocr" helper) ─────
+// One long-running helper; requests are answered in order, one JSON line each.
+let ocrProc = null, ocrQueue = [], ocrBuf = '';
+function ocrPath() {
+  if (process.platform !== 'darwin') return null;
+  const p = app.isPackaged ? path.join(process.resourcesPath, 'ocr', 'wfocr') : path.join(__dirname, '..', 'ocr', 'bin', 'wfocr');
+  return fs.existsSync(p) ? p : null;
+}
+function ocrStart() {
+  if (ocrProc) return ocrProc;
+  const p = ocrPath(); if (!p) return null;
+  ocrProc = require('child_process').spawn(p, [], { stdio: ['pipe', 'pipe', 'ignore'] });
+  ocrProc.stdout.setEncoding('utf8');
+  ocrProc.stdout.on('data', chunk => {
+    ocrBuf += chunk;
+    let i;
+    while ((i = ocrBuf.indexOf('\n')) >= 0) {
+      const line = ocrBuf.slice(0, i); ocrBuf = ocrBuf.slice(i + 1);
+      const job = ocrQueue.shift(); if (!job) continue;
+      clearTimeout(job.timer);
+      try { job.resolve(JSON.parse(line)); } catch (_) { job.resolve([]); }
+    }
+  });
+  const reset = () => { ocrProc = null; ocrBuf = ''; ocrQueue.splice(0).forEach(j => { clearTimeout(j.timer); j.resolve([]); }); };
+  ocrProc.on('exit', reset); ocrProc.on('error', reset);
+  return ocrProc;
+}
+function ocrRead(bytes) {
+  const proc = ocrStart();
+  if (!proc) return Promise.resolve(null);
+  return new Promise(resolve => {
+    const job = { resolve, timer: setTimeout(() => { // a stuck helper is restarted on next use
+      const k = ocrQueue.indexOf(job); if (k >= 0) ocrQueue.splice(k, 1);
+      resolve([]); if (ocrProc) ocrProc.kill();
+    }, 8000) };
+    ocrQueue.push(job);
+    proc.stdin.write(Buffer.from(bytes).toString('base64') + '\n');
+  });
+}
+app.on('will-quit', () => { if (ocrProc) ocrProc.kill(); });
+
 function register(getWin) {
+  ipcMain.handle('ocr:available', () => !!ocrPath());
+  ipcMain.handle('ocr:read', (_e, bytes) => ocrRead(bytes));
+
   ipcMain.handle('wh:load', () => readWarehouse());
   ipcMain.handle('wh:save', (_e, data) => writeWarehouse(data));
   ipcMain.handle('wh:path', () => warehousePath());

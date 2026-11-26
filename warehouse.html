@@ -124,6 +124,7 @@
       <button id="btnImg" title="Decode a photo of the label instead">From photo…</button>
       <input type="file" id="imgFile" accept="image/*" hidden>
     </div>
+    <div class="note" style="padding:0">Tip: the built-in Mac camera can't focus close up. An iPhone near your Mac shows up in the camera list (Continuity Camera) and reads labels much better — or use <b>From photo…</b> with a phone picture.</div>
     <div class="row">
       <input id="code" class="mono" placeholder="…or type the 15-digit number" inputmode="numeric">
     </div>
@@ -213,6 +214,26 @@ function valid(m, f, v) {
 }
 
 function idFromImei(imei) { const d = digits(imei); return d.length >= ID_DIGITS ? d.slice(-ID_DIGITS) : d; }
+
+// IMEIs end in a Luhn check digit, so a misread digit is almost always caught.
+function luhnOk(n) {
+  let s = 0;
+  for (let i = 0; i < n.length; i++) {
+    let d = +n[n.length - 1 - i];
+    if (i % 2) { d *= 2; if (d > 9) d -= 9; }
+    s += d;
+  }
+  return n.length > 0 && s % 10 === 0;
+}
+// Find a valid 15-digit IMEI in OCR text (fixes the usual letter/digit mix-ups).
+function imeiFromText(texts) {
+  const fix = { O: '0', o: '0', D: '0', Q: '0', U: '0', I: '1', l: '1', i: '1', '|': '1', '!': '1', L: '1', Z: '2', z: '2', S: '5', s: '5', G: '6', b: '6', T: '7', B: '8', g: '9', q: '9' };
+  for (const raw of texts || []) {
+    const runs = String(raw).replace(/[OoDQUIli|!LZzSsGbTBgq]/g, c => fix[c]).replace(/[\s.\-]/g, '').match(/\d{15,}/g) || [];
+    for (const r of runs) for (let k = 0; k + 15 <= r.length; k++) { const w = r.slice(k, k + 15); if (luhnOk(w)) return w; }
+  }
+  return null;
+}
 
 // ── UI: messages ─────────────────────────────────────────
 function flash(kind, text) {
@@ -576,7 +597,7 @@ function copyFrom() {
 }
 
 // ── Scanner ──────────────────────────────────────────────
-let reader = null, stream = null, scanCode = '';
+let scanCode = '';
 function setCode(raw) {
   const d = digits(raw);
   scanCode = d.length > 15 ? d.slice(-15) : d;
@@ -588,6 +609,7 @@ function setCode(raw) {
   const id = idFromImei(scanCode);
   const existing = DB.cameras.find(c => (c.imei && c.imei === scanCode) || c.cameraId === id);
   box.hidden = false; box.innerHTML = '';
+  if (scanCode.length === 15 && !luhnOk(scanCode)) box.dataset.warn = '1'; else delete box.dataset.warn;
   if (existing) {
     box.append('Already in warehouse: ', el('b', {}, existing.name), ' (' + existing.model + ').');
     $('#btnUseCode').textContent = 'Open camera';
@@ -597,33 +619,102 @@ function setCode(raw) {
       '  Name: ', el('input', { id: 'newName', value: 'Camera ' + String(DB.cameras.length + 1).padStart(2, '0'), style: 'width:170px' }));
     $('#btnUseCode').textContent = 'Add camera';
   }
+  if (box.dataset.warn) box.append(el('div', { style: 'color:var(--warn);margin-top:6px' }, '⚠ This number fails the IMEI check digit — probably a typo. Check it against the label.'));
 }
 async function openScanner() {
   $('#scanModal').classList.add('show'); setCode(''); $('#code').focus();
   $('#scanLbl').textContent = 'Starting camera…';
-  try {
-    // Triggers the macOS permission prompt on first use; the webcam call below gives the real answer.
-    if (API && API.cameraAccess) { try { await API.cameraAccess(); } catch (_) {} }
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.ITF, ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    reader = new ZXing.BrowserMultiFormatReader(hints, 250);
-    const devices = await reader.listVideoInputDevices();
-    const sel = $('#camSelect'); sel.innerHTML = '';
-    devices.forEach(d => sel.append(el('option', { value: d.deviceId }, d.label || 'Camera')));
-    if (!devices.length) throw new Error('No webcam found. Type the number or use a photo.');
-    startStream(sel.value);
-  } catch (e) { $('#scanLbl').textContent = e && e.name && e.name !== 'Error' ? cameraErrorText(e) : (e.message || cameraErrorText(e)); }
+  // Triggers the macOS permission prompt on first use; the webcam call gives the real answer.
+  if (API && API.cameraAccess) { try { await API.cameraAccess(); } catch (_) {} }
+  await startStream($('#camSelect').value || undefined);
+  if (!curStream) return;
+  // Labels are only available after permission, so list the cameras now.
+  const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+  const sel = $('#camSelect'); sel.innerHTML = '';
+  const active = curStream.getVideoTracks()[0].getSettings().deviceId;
+  cams.forEach(d => sel.append(el('option', { value: d.deviceId, selected: d.deviceId === active }, d.label || 'Camera')));
+  // An iPhone (Continuity Camera) focuses close up; the built-in Mac camera cannot.
+  const phone = cams.find(d => /iphone|continuity/i.test(d.label));
+  if (phone && phone.deviceId !== active) { sel.value = phone.deviceId; await startStream(phone.deviceId); }
 }
-function startStream(deviceId) {
-  if (!reader) return;
-  reader.reset();
-  $('#scanLbl').textContent = 'Hold the barcode inside the box';
-  reader.decodeFromVideoDevice(deviceId || undefined, 'video', (res) => {
-    if (!res) return;
-    const d = digits(res.getText());
-    if (d.length >= ID_DIGITS && d !== scanCode) { setCode(d); $('#scanLbl').textContent = '✓ Read ' + d; try { new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); } catch (_) {} }
-  }).catch(e => { $('#scanLbl').textContent = cameraErrorText(e); });
+
+let curStream = null, scanTimer = null, scanCore = null;
+function stopStream() {
+  clearTimeout(scanTimer); scanTimer = null;
+  if (curStream) { curStream.getTracks().forEach(t => t.stop()); curStream = null; }
+}
+async function startStream(deviceId) {
+  stopStream();
+  const v = $('#video');
+  try {
+    curStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: {
+      deviceId: deviceId ? { exact: deviceId } : undefined,
+      width: { ideal: 1920 }, height: { ideal: 1080 }, focusMode: 'continuous' } });
+  } catch (e) { $('#scanLbl').textContent = cameraErrorText(e); return; }
+  v.srcObject = curStream;
+  try { await v.play(); } catch (_) {}
+  $('#scanLbl').textContent = 'Hold the label in the box, 15–25 cm away, flat and well lit';
+  if (!scanCore) {
+    scanCore = new ZXing.MultiFormatReader();
+    scanCore.setHints(new Map([[ZXing.DecodeHintType.TRY_HARDER, true],
+      [ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.ITF, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX]]]));
+  }
+  scanTick(0);
+  ocrTick(++ocrLoop);
+}
+// OCR the printed digits under the barcode (macOS only). A reading is accepted when
+// it passes the IMEI check digit twice in a row.
+let ocrBusy = false, ocrLast = null, ocrOn = null, ocrLoop = 0;
+async function ocrTick(loop) {
+  if (!curStream || loop !== ocrLoop) return;
+  if (ocrOn === null) ocrOn = !!(API && API.ocrAvailable && await API.ocrAvailable().catch(() => false));
+  const v = $('#video');
+  if (ocrOn && !ocrBusy && v.videoWidth) {
+    ocrBusy = true;
+    try {
+      const cv = document.createElement('canvas');
+      const sx = v.videoWidth * 0.04, sw = v.videoWidth * 0.92, sy = v.videoHeight * 0.2, sh = v.videoHeight * 0.6;
+      const k = Math.min(1, 1400 / sw);
+      cv.width = Math.round(sw * k); cv.height = Math.round(sh * k);
+      cv.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, cv.width, cv.height);
+      const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.9));
+      const texts = await API.ocrRead(new Uint8Array(await blob.arrayBuffer()));
+      const imei = imeiFromText(texts);
+      if (imei && imei === ocrLast && imei !== scanCode && curStream) {
+        setCode(imei); $('#scanLbl').textContent = '✓ Read ' + imei + ' (printed number)'; beep();
+      }
+      ocrLast = imei || ocrLast;
+    } catch (_) {}
+    ocrBusy = false;
+  }
+  setTimeout(() => ocrTick(loop), 250);
+}
+function beep() { try { new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); } catch (_) {} }
+// Each tick decodes one horizontal band of the full-resolution frame, enlarged,
+// so a small label still has enough pixels per bar. Bands cycle over the box area.
+const SCAN_BANDS = [[0.36, 0.28], [0.30, 0.20], [0.42, 0.20], [0.50, 0.20], [0.22, 0.20], [0.58, 0.20], [0, 1]];
+const scanCanvas = document.createElement('canvas');
+function scanTick(i) {
+  const v = $('#video');
+  if (!curStream) return;
+  if (v.videoWidth) {
+    const [y0, h] = SCAN_BANDS[i % SCAN_BANDS.length];
+    const full = h === 1;
+    const sx = full ? 0 : v.videoWidth * 0.04, sw = full ? v.videoWidth : v.videoWidth * 0.92;
+    const sy = v.videoHeight * y0, sh = v.videoHeight * h;
+    const k = full ? Math.min(1, 1280 / sw) : Math.min(2.5, Math.max(1, 2200 / sw));
+    scanCanvas.width = Math.round(sw * k); scanCanvas.height = Math.round(sh * k);
+    const cx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    cx.imageSmoothingQuality = 'high';
+    cx.drawImage(v, sx, sy, sw, sh, 0, 0, scanCanvas.width, scanCanvas.height);
+    let text = null;
+    try { text = scanCore.decodeWithState(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(scanCanvas)))).getText(); } catch (_) {}
+    const d = digits(text);
+    if (d.length >= ID_DIGITS && d !== scanCode) {
+      setCode(d); $('#scanLbl').textContent = '✓ Read ' + d + ' (barcode)'; beep();
+    }
+  }
+  scanTimer = setTimeout(() => scanTick(i + 1), 60);
 }
 function cameraErrorText(e) {
   const n = (e && e.name) || '';
@@ -632,7 +723,15 @@ function cameraErrorText(e) {
   if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'No usable webcam found. Type the number or use a photo.';
   return 'Camera error: ' + ((e && e.message) || n || 'unknown') + '. Type the number or use a photo.';
 }
-function closeScanner() { if (reader) { reader.reset(); reader = null; } $('#scanModal').classList.remove('show'); }
+function closeScanner() { stopStream(); $('#video').srcObject = null; $('#scanModal').classList.remove('show'); }
+async function ocrImage(file) {
+  const img = new Image(); img.src = URL.createObjectURL(file); await img.decode();
+  const k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight)); // big photos are slow to OCR
+  const cv = document.createElement('canvas'); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+  cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92));
+  return API.ocrRead(new Uint8Array(await blob.arrayBuffer()));
+}
 async function decodeImageFile(file) {
   const img = new Image(); img.src = URL.createObjectURL(file);
   await img.decode();
@@ -692,7 +791,11 @@ $('#btnImg').onclick = () => $('#imgFile').click();
 $('#imgFile').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   $('#scanLbl').textContent = 'Reading photo…';
-  const t = await decodeImageFile(f); e.target.value = '';
+  let t = await decodeImageFile(f); e.target.value = '';
+  if (!t && API && API.ocrRead && await API.ocrAvailable().catch(() => false)) {
+    $('#scanLbl').textContent = 'No barcode found — reading the printed number…';
+    t = imeiFromText(await ocrImage(f));
+  }
   if (t) { setCode(t); $('#scanLbl').textContent = '✓ Read ' + digits(t) + ' from photo'; }
   else $('#scanLbl').textContent = 'No barcode found in that photo — try a closer, straighter shot.';
 };
