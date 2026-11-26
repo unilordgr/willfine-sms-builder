@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Warehouse — Willfine SD Card</title>
+<style>
+  :root{
+    --bg:#0f1419; --panel:#1a2028; --panel2:#222a34; --ink:#e6edf3;
+    --muted:#8b98a8; --line:#2a3340; --accent:#c792ea; --ok:#7ed957;
+    --warn:#f9a03f; --danger:#e05a5a; --field:#0b1016;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font:13px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+  button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--ink);padding:7px 12px}
+  button:hover{border-color:#3a4656}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#170c20;font-weight:600}
+  button.ok{background:var(--ok);border-color:var(--ok);color:#0c1a05;font-weight:600}
+  button.danger{color:var(--danger)}
+  button:disabled{opacity:.45;cursor:default}
+  input,select,textarea{font:inherit;color:var(--ink);background:var(--field);
+    border:1px solid var(--line);border-radius:5px;padding:6px 8px;min-width:0}
+  input:focus,select:focus,textarea:focus{outline:2px solid rgba(199,146,234,.45);border-color:var(--accent)}
+  input:disabled,select:disabled{opacity:.45}
+  .app{display:grid;grid-template-columns:300px 1fr;height:100vh}
+  /* sidebar */
+  .side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:#0c1116}
+  .side-top{padding:12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+  .side-top .row{display:flex;gap:8px}
+  .side-top .row > *{flex:1}
+  .list{overflow:auto;flex:1}
+  .item{padding:10px 12px;border-bottom:1px solid #1a222c;cursor:pointer}
+  .item:hover{background:#141b23}
+  .item.sel{background:#1d1626;box-shadow:inset 3px 0 var(--accent)}
+  .item .n{font-weight:600}
+  .item .m{color:var(--muted);font-size:11px;margin-top:3px;display:flex;justify-content:space-between;gap:6px}
+  .badge{display:inline-block;font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;
+    background:rgba(199,146,234,.15);color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+  .side-foot{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap}
+  .side-foot button{padding:5px 8px;font-size:12px}
+  .count{color:var(--muted);font-size:11px}
+  /* main */
+  .main{overflow:auto;min-width:0}
+  .empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);flex-direction:column;gap:12px;text-align:center;padding:20px}
+  .empty h2{color:var(--ink);margin:0;font-size:18px}
+  .head{padding:16px 20px;border-bottom:1px solid var(--line);display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 14px;background:var(--panel)}
+  .head label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .head input,.head select{font-size:14px}
+  .head .name input{font-size:16px;font-weight:600}
+  .sdbar{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#141a21}
+  .sdbar select{min-width:220px}
+  .sdbar .sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+  .status{padding:0 20px;min-height:0}
+  .msg{margin:10px 0 0;padding:8px 12px;border-radius:6px;font-size:12px;border-left:3px solid}
+  .msg.ok{background:#14240f;border-color:var(--ok);color:#b9e9a0}
+  .msg.err{background:#2a1414;border-color:var(--danger);color:#f2b0b0}
+  .msg.info{background:#1d1626;border-color:var(--accent);color:#ddc6f0}
+  .tabs{display:flex;gap:2px;padding:14px 20px 0;border-bottom:1px solid var(--line)}
+  .tabs .t{padding:8px 14px;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;color:var(--muted);display:flex;gap:8px;align-items:center}
+  .tabs .t.active{background:var(--panel);border-color:var(--line);color:var(--ink)}
+  .tabs .t input{margin:0}
+  .pane{padding:16px 20px 40px}
+  .grp{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
+  .grp h3{margin:0;padding:9px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:2px 18px;padding:10px 14px}
+  .f{display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:center;padding:5px 0}
+  .f > span{color:#c3ccd6}
+  .f .ctl{display:flex;gap:6px;align-items:center;min-width:0;flex-wrap:wrap}
+  .f .ctl > input[type=text],.f .ctl > input[type=password],.f .ctl > select{flex:1}
+  .f .hint{grid-column:2;color:var(--muted);font-size:11px;margin-top:-2px}
+  .onoff{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;flex:none}
+  .onoff button{border:0;border-radius:0;padding:5px 10px;background:var(--field);color:var(--muted)}
+  .onoff button.on{background:var(--accent);color:#170c20;font-weight:600}
+  .pics label{display:inline-flex;gap:3px;align-items:center;color:#c3ccd6}
+  .note{color:var(--muted);font-size:12px;padding:0 14px 10px}
+  .notapplied{opacity:.55}
+  /* scanner modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:10}
+  .modal.show{display:flex}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;width:min(640px,94vw);padding:16px;display:flex;flex-direction:column;gap:12px}
+  .card h2{margin:0;font-size:16px}
+  .video{position:relative;background:#000;border-radius:8px;overflow:hidden;aspect-ratio:4/3}
+  .video video{width:100%;height:100%;object-fit:cover;display:block}
+  .video .aim{position:absolute;left:8%;right:8%;top:38%;height:24%;border:2px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px rgba(0,0,0,.35)}
+  .video .lbl{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#fff;text-shadow:0 1px 3px #000;font-size:12px}
+  .card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .card .row input{flex:1;font-size:15px;letter-spacing:.04em}
+  .found{font-size:13px;padding:10px;border-radius:6px;background:#1d1626;border:1px solid #3b2a4c}
+  .found b{color:var(--accent)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="side-top">
+      <button class="primary" id="btnScan">📷 Scan camera barcode</button>
+      <button id="btnAdd">+ Add manually</button>
+      <input id="search" type="search" placeholder="Search name, IMEI, ID, model…">
+    </div>
+    <div class="list" id="list"></div>
+    <div class="side-foot">
+      <span class="count" id="count"></span>
+      <span style="flex:1"></span>
+      <button id="btnExport" title="Export all cameras to a JSON file">Export</button>
+      <button id="btnImport" title="Import cameras from a JSON file">Import</button>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="modal" id="scanModal">
+  <div class="card">
+    <h2>Scan the barcode on the camera</h2>
+    <div class="video" id="videoBox">
+      <video id="video" playsinline muted></video>
+      <div class="aim"></div>
+      <div class="lbl" id="scanLbl">Starting camera…</div>
+    </div>
+    <div class="row">
+      <select id="camSelect" title="Webcam"></select>
+      <button id="btnImg" title="Decode a photo of the label instead">From photo…</button>
+      <input type="file" id="imgFile" accept="image/*" hidden>
+    </div>
+    <div class="row">
+      <input id="code" class="mono" placeholder="…or type the 15-digit number" inputmode="numeric">
+    </div>
+    <div id="found" class="found" hidden></div>
+    <div class="row" style="justify-content:flex-end">
+      <button id="btnCancelScan">Cancel</button>
+      <button class="primary" id="btnUseCode" disabled>Add camera</button>
+    </div>
+  </div>
+</div>
+
+<script src="sdcard/models.js"></script>
+<script src="sdcard/codec.js"></script>
+<script src="sdcard/vendor/zxing.min.js"></script>
+<script>
+'use strict';
+const MODELS = window.WF_MODELS, CODEC = window.WF_CODEC;
+const API = (() => {
+  try { if (window.electronAPI) return window.electronAPI; } catch (_) {}
+  try { if (window.parent && window.parent.electronAPI) return window.parent.electronAPI; } catch (_) {}
+  return null;
+})();
+const DEFAULT_MODEL = 'T4.0CG';
+const ID_DIGITS = 12;        // camera firmware accepts exactly 12 characters
+
+// ── helpers ──────────────────────────────────────────────
+const $ = s => document.querySelector(s);
+const el = (tag, attrs, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, '');
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+};
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const digits = s => String(s || '').replace(/\D/g, '');
+const fmtDate = t => t ? new Date(t).toLocaleString() : '—';
+const clone = o => JSON.parse(JSON.stringify(o));
+
+// ── store ────────────────────────────────────────────────
+let DB = { version: 1, cameras: [] };
+let selId = null, curTab = 1, saveTimer = null;
+async function loadDB() {
+  if (API) DB = await API.whLoad();
+  else { try { DB = JSON.parse(localStorage.getItem('wf_warehouse')) || DB; } catch (_) {} }
+}
+function saveDB(now) {
+  clearTimeout(saveTimer);
+  const go = async () => {
+    try { if (API) await API.whSave(DB); else localStorage.setItem('wf_warehouse', JSON.stringify(DB)); }
+    catch (e) { flash('err', 'Could not save warehouse: ' + e.message); }
+  };
+  if (now) return go();
+  saveTimer = setTimeout(go, 400);
+}
+const cam = () => DB.cameras.find(c => c.id === selId);
+
+function newCamera({ imei = '', cameraId = '', model = DEFAULT_MODEL, name } = {}) {
+  const m = MODELS[model];
+  const settings = CODEC.defaults(m);
+  if (cameraId) { settings.tbCameraID = cameraId; settings.cbCameraID = false; } // ID ON
+  const n = DB.cameras.length + 1;
+  return {
+    id: uid(), name: name || ('Camera ' + String(n).padStart(2, '0')),
+    imei, cameraId, model, modify: 7, settings, notes: '',
+    createdAt: Date.now(), updatedAt: Date.now(), lastWrite: null,
+  };
+}
+
+// Keep values whose control exists in the new model; reset the rest to defaults.
+function switchModel(c, model) {
+  const m = MODELS[model], d = CODEC.defaults(m), out = {};
+  for (const f of m.fields) {
+    const k = CODEC.ctlKey(f);
+    out[k] = (k in c.settings && valid(m, f, c.settings[k])) ? c.settings[k] : d[k];
+  }
+  c.model = model; c.settings = out;
+}
+function valid(m, f, v) {
+  if (f.kind === 'select') return Number.isInteger(v) && v >= 0 && (!m.labels[f.ctl] || v < m.labels[f.ctl].length || f.ctl === 'cbOperators');
+  if (f.kind === 'tz') return Number.isInteger(v) && v >= 0 && v < f.values.length;
+  return v !== undefined;
+}
+
+function idFromImei(imei) { const d = digits(imei); return d.length >= ID_DIGITS ? d.slice(-ID_DIGITS) : d; }
+
+// ── UI: messages ─────────────────────────────────────────
+function flash(kind, text) {
+  const box = $('#status'); if (!box) return;
+  box.innerHTML = ''; box.append(el('div', { class: 'msg ' + kind }, text));
+  if (kind !== 'err') setTimeout(() => { if (box.firstChild && box.firstChild.textContent === text) box.innerHTML = ''; }, 6000);
+}
+
+// ── UI: list ─────────────────────────────────────────────
+function renderList() {
+  const q = $('#search').value.trim().toLowerCase();
+  const list = $('#list'); list.innerHTML = '';
+  const cams = DB.cameras.filter(c => !q || [c.name, c.imei, c.cameraId, c.model, c.notes].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  for (const c of cams) {
+    list.append(el('div', { class: 'item' + (c.id === selId ? ' sel' : ''), onclick: () => select(c.id) },
+      el('div', { class: 'n' }, c.name || '(no name)'),
+      el('div', { class: 'm' }, el('span', { class: 'mono' }, c.imei || c.cameraId || 'no code'), el('span', { class: 'badge' }, c.model)),
+      el('div', { class: 'm' }, el('span', {}, c.lastWrite ? 'SD written ' + fmtDate(c.lastWrite) : 'never written'))));
+  }
+  if (!cams.length) list.append(el('div', { class: 'note', style: 'padding:16px' }, DB.cameras.length ? 'No match.' : 'No cameras yet — scan one to start.'));
+  $('#count').textContent = DB.cameras.length + ' camera' + (DB.cameras.length === 1 ? '' : 's');
+}
+
+function select(id) { selId = id; renderList(); renderMain(); }
+
+// ── UI: detail ───────────────────────────────────────────
+const EXTRA_NAMES = { cbMMSSwitch: 'MMS Switch', rbEncrypt: 'SMTP Encryption', PCBit: 'SMTP/FTP Pic Count', tbDateTime: 'Set camera clock' };
+const PAIRS = { // ON/OFF switch → the value it enables
+  cbDailyReport: 'dtpDailyReport', cbTimeLapse: 'dtpTimeLapse', cbDelay: 'dtpDelay', cbTimer: 'dtpTimerStart',
+  cbTimer2: 'dtpTimer2Start', cbCameraID: 'tbCameraID', cbPassword: 'tbPassword', cbDateTime: 'tbDateTime', cbTZSwitch: 'cbTimeZone',
+};
+const PAIRED = new Set(Object.values(PAIRS));
+const GROUPS = [
+  ['Network', k => /^(cb3G|cbSIM|cbCountry|cbOperators|cbGPS|cbSMSCtrl|nudMMSMax|cbDailyReport|dtpDailyReport|cbSMSWarning|tSMSPhone)/.test(k)],
+  ['Photo sending', k => /^(cbPicSize|cbTransPhoto|cbTransVideo|PCBit|cbMMSSwitch)/.test(k)],
+  ['MMS', k => /^tMMS/.test(k)],
+  ['Mobile data (GPRS / APN)', k => /^tGPRS/.test(k)],
+  ['Email (SMTP)', k => /^(cbSMTPSwitch|tSMTP|rbEncrypt)/.test(k)],
+  ['FTP', k => /^(cbFTP|tFTP)/.test(k)],
+  ['Send to', k => /^(tPhone|tEmail)/.test(k)],
+];
+const SECRET = /Password$/;
+
+function fieldName(m, k) { return m.names[k] || EXTRA_NAMES[k] || k; }
+
+function renderMain() {
+  const c = cam(), main = $('#main'); main.innerHTML = '';
+  if (!c) {
+    main.append(el('div', { class: 'empty' },
+      el('h2', {}, DB.cameras.length ? 'Pick a camera' : 'Your camera warehouse'),
+      el('div', {}, 'Scan the barcode inside a camera to add it. Each camera keeps its own name, type and SD-card settings.'),
+      el('button', { class: 'primary', onclick: openScanner }, '📷 Scan camera barcode')));
+    return;
+  }
+  const m = MODELS[c.model];
+  const touch = () => { c.updatedAt = Date.now(); saveDB(); };
+
+  // header
+  const modelSel = el('select', { onchange: e => {
+    if (!confirm('Change camera type to ' + MODELS[e.target.value].name + '? Settings that the new type does not have will reset.')) { e.target.value = c.model; return; }
+    switchModel(c, e.target.value); touch(); renderList(); renderMain();
+  } }, Object.entries(MODELS).map(([k, v]) => el('option', { value: k, selected: k === c.model }, v.name)));
+  const imeiIn = el('input', { class: 'mono', value: c.imei, placeholder: '15-digit IMEI', oninput: e => {
+    c.imei = digits(e.target.value); const id = idFromImei(c.imei);
+    if (id.length === ID_DIGITS) { c.cameraId = id; c.settings.tbCameraID = id; idIn.value = id; }
+    touch(); renderList();
+  } });
+  const idIn = el('input', { class: 'mono', value: c.cameraId, maxlength: ID_DIGITS, oninput: e => {
+    c.cameraId = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, ID_DIGITS); e.target.value = c.cameraId;
+    c.settings.tbCameraID = c.cameraId; touch(); renderList();
+  } });
+  main.append(el('div', { class: 'head' },
+    el('label', { class: 'name' }, 'Name', el('input', { value: c.name, oninput: e => { c.name = e.target.value; touch(); renderList(); } })),
+    el('label', {}, 'Camera type', modelSel),
+    el('label', {}, 'IMEI (scanned)', imeiIn),
+    el('label', {}, 'Camera ID (last 12 digits)', idIn),
+    el('label', {}, 'Notes', el('input', { value: c.notes || '', placeholder: 'location, owner…', oninput: e => { c.notes = e.target.value; touch(); } }))));
+
+  // SD bar
+  const volSel = el('select', { id: 'volSel' });
+  main.append(el('div', { class: 'sdbar' },
+    el('span', { style: 'color:var(--muted)' }, 'SD card:'), volSel,
+    el('button', { onclick: refreshVolumes, title: 'Look for cards again' }, '↻'),
+    el('button', { class: 'ok', onclick: writeSD }, 'Write to SD card'),
+    el('button', { onclick: () => readSD(true), title: 'Load a Parameter.cfg that is still on the card (the camera may delete it after loading)' }, 'Load from SD'),
+    el('span', { class: 'sep' }),
+    el('button', { onclick: saveFile }, 'Save .cfg…'),
+    el('button', { onclick: loadFile }, 'Load .cfg…'),
+    el('button', { onclick: copyFrom }, 'Copy settings from…'),
+    el('span', { style: 'flex:1' }),
+    el('span', { class: 'count' }, 'Last written: ' + fmtDate(c.lastWrite)),
+    el('button', { class: 'danger', onclick: () => {
+      if (!confirm('Delete "' + c.name + '" from the warehouse?')) return;
+      DB.cameras = DB.cameras.filter(x => x.id !== c.id); selId = null; saveDB(true); renderList(); renderMain();
+    } }, 'Delete')));
+  main.append(el('div', { class: 'status', id: 'status' }));
+  refreshVolumes();
+
+  // tabs
+  const tabs = el('div', { class: 'tabs' });
+  m.tabTitles.forEach((title, i) => {
+    const bit = [1, 2, 4][i];
+    const chk = el('input', { type: 'checkbox', checked: !!(c.modify & bit), title: 'Apply this tab when the camera reads the card', onclick: e => e.stopPropagation(),
+      onchange: e => { c.modify = e.target.checked ? (c.modify | bit) : (c.modify & ~bit); touch(); renderMain(); } });
+    tabs.append(el('div', { class: 't' + (curTab === bit ? ' active' : ''), onclick: () => { curTab = bit; renderMain(); } }, chk, title || ['Network', 'Camera', 'Other'][i]));
+  });
+  main.append(tabs);
+
+  const pane = el('div', { class: 'pane' + ((c.modify & curTab) ? '' : ' notapplied') });
+  if (!(c.modify & curTab)) pane.append(el('div', { class: 'msg info', style: 'margin:0 0 12px' }, 'This tab is not ticked — the camera will ignore these settings. Tick the box on the tab to apply them.'));
+  const fields = m.fields.filter(f => (m.tabs[CODEC.ctlKey(f)] || 1) === curTab && !PAIRED.has(CODEC.ctlKey(f)));
+  if (curTab === 1) {
+    const used = new Set();
+    for (const [title, test] of GROUPS) {
+      const fs = fields.filter(f => !used.has(f) && test(CODEC.ctlKey(f)));
+      fs.forEach(f => used.add(f));
+      if (fs.length) pane.append(group(title, fs, c, m, touch));
+    }
+    const rest = fields.filter(f => !used.has(f));
+    if (rest.length) pane.append(group('More', rest, c, m, touch));
+  } else {
+    pane.append(group(curTab === 2 ? 'Camera' : 'Other', fields, c, m, touch));
+  }
+  main.append(pane);
+}
+
+function group(title, fields, c, m, touch) {
+  const g = el('div', { class: 'grp' }, el('h3', {}, title));
+  const grid = el('div', { class: 'grid' });
+  for (const f of fields) grid.append(fieldRow(f, c, m, touch));
+  g.append(grid);
+  return g;
+}
+
+function timeInput(val, withSec, onchange, disabled) {
+  const v = String(val || '000000');
+  const fmt = v.slice(0, 2) + ':' + v.slice(2, 4) + (withSec ? ':' + v.slice(4, 6) : '');
+  return el('input', { type: 'time', step: withSec ? 1 : 60, value: fmt, disabled,
+    onchange: e => { const p = (e.target.value || '00:00:00').split(':'); onchange((p[0] || '00') + (p[1] || '00') + (withSec ? (p[2] || '00') : '00')); } });
+}
+
+function valueControl(f, c, m, touch, disabled) {
+  const k = CODEC.ctlKey(f), s = c.settings;
+  const set = v => { s[k] = v; touch(); };
+  const labels = m.labels[f.ctl] || [];
+  switch (f.kind) {
+    case 'select': {
+      let opts = labels;
+      if (k === 'cbOperators') opts = ((m.operators[s.cbCountry] || {}).operators || []).map(o => o.name);
+      const sel = el('select', { disabled, onchange: e => {
+        set(+e.target.value);
+        if (k === 'cbCountry') { s.cbOperators = 0; applyOperator(c, m); renderMain(); }
+        if (k === 'cbOperators') { applyOperator(c, m); renderMain(); }
+        if (k === 'cbSIMAutoMatch') renderMain();
+      } }, opts.map((t, i) => el('option', { value: i, selected: i === s[k] }, t)));
+      if (/^cb(Country|Operators)$/.test(k) && s.cbSIMAutoMatch === 0) sel.disabled = true;
+      return sel;
+    }
+    case 'tz': return el('select', { disabled, onchange: e => set(+e.target.value) },
+      labels.map((t, i) => el('option', { value: i, selected: i === s[k] }, t)));
+    case 'tobyte': return el('select', { disabled, onchange: e => set(+e.target.value) },
+      labels.map(t => el('option', { value: +t, selected: +t === s[k] }, t)));
+    case 'nud': return el('input', { type: 'number', min: 1, max: 60, value: s[k], disabled, onchange: e => set(+e.target.value) });
+    case 'radio': return el('select', { disabled, onchange: e => set(+e.target.value) },
+      ['NO SSL', 'SSL', 'SmartTLS'].map((t, i) => el('option', { value: i, selected: i === s[k] }, t)));
+    case 'max': {
+      const v = s[k] || { unlimited: true, value: 1 };
+      const num = el('input', { type: 'number', min: 1, max: 99, value: v.value, disabled: v.unlimited || disabled, style: 'width:70px',
+        onchange: e => { set({ unlimited: false, value: Math.max(1, Math.min(99, +e.target.value || 1)) }); } });
+      return el('span', { class: 'ctl' }, el('label', { class: 'pics' }, el('input', { type: 'checkbox', checked: v.unlimited,
+        onchange: e => { set({ unlimited: e.target.checked, value: v.value }); renderMain(); } }), 'Unlimited'), num);
+    }
+    case 'bits': {
+      const wrap = el('span', { class: 'ctl pics' });
+      for (let i = 0; i < 5; i++) wrap.append(el('label', {}, el('input', { type: 'checkbox', checked: !!(s[k] & (1 << i)),
+        onchange: e => set(e.target.checked ? (s[k] | (1 << i)) : (s[k] & ~(1 << i))) }), 'Pic' + (i + 1)));
+      return wrap;
+    }
+    case 'time': return timeInput(s[k], /Delay|TimeLapse/.test(k), set, disabled);
+    case 'range': {
+      const v = s[k] || ['000000', '000000'];
+      return el('span', { class: 'ctl' },
+        timeInput(v[0], false, x => set([x, v[1]]), disabled), 'to', timeInput(v[1], false, x => set([v[0], x]), disabled));
+    }
+    case 'now': return el('span', { class: 'count' }, 'Uses this Mac’s clock at the moment you write the card');
+    case 'text': {
+      const secret = SECRET.test(k);
+      const inp = el('input', { type: secret ? 'password' : 'text', value: s[k] || '', maxlength: f.len, disabled, spellcheck: 'false',
+        class: /Phone|IP|Port|CameraID|Password/.test(k) ? 'mono' : '',
+        oninput: e => {
+          let v = e.target.value;
+          if (k === 'tbCameraID') v = v.replace(/[^0-9A-Za-z]/g, '');
+          if (k === 'tbPassword') v = v.replace(/\D/g, '').slice(0, 6);
+          if (v !== e.target.value) e.target.value = v;
+          set(v);
+          if (k === 'tbCameraID') { c.cameraId = v; renderList(); }
+        } });
+      if (!secret) return inp;
+      return el('span', { class: 'ctl' }, inp, el('button', { style: 'padding:4px 8px', onclick: e => {
+        inp.type = inp.type === 'password' ? 'text' : 'password'; e.target.textContent = inp.type === 'password' ? 'show' : 'hide'; } }, 'show'));
+    }
+  }
+  return el('span', {}, '?');
+}
+
+function fieldRow(f, c, m, touch) {
+  const k = CODEC.ctlKey(f);
+  const row = el('div', { class: 'f' }, el('span', {}, fieldName(m, k)));
+  if (f.kind === 'check') {
+    const s = c.settings, isOff = !!s[k];               // the Windows "OFF" tick box
+    const partner = PAIRS[k] && m.fields.find(x => CODEC.ctlKey(x) === PAIRS[k]);
+    const ctl = el('div', { class: 'ctl' },
+      el('span', { class: 'onoff' },
+        el('button', { class: isOff ? '' : 'on', onclick: () => { s[k] = false; touch(); renderMain(); } }, 'ON'),
+        el('button', { class: isOff ? 'on' : '', onclick: () => { s[k] = true; touch(); renderMain(); } }, 'OFF')));
+    if (partner) ctl.append(valueControl(partner, c, m, touch, isOff));
+    row.append(ctl);
+    if (k === 'cbPassword' && !isOff && String(s.tbPassword || '').length !== 6) row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, 'Needs exactly 6 digits, otherwise it is cleared.'));
+    if (k === 'cbCameraID' && !isOff && String(s.tbCameraID || '').length !== ID_DIGITS && c.model === 'T4.0CG') row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, 'Camera ID should be 12 characters.'));
+  } else {
+    row.append(el('div', { class: 'ctl' }, valueControl(f, c, m, touch, false)));
+  }
+  if (f.kind === 'text' && f.len && !/Password/.test(k)) row.title = 'Max ' + f.len + ' characters';
+  return row;
+}
+
+// Same behaviour as the Windows tool: choosing an operator fills in APN/MMS fields.
+function applyOperator(c, m) {
+  const s = c.settings;
+  const op = ((m.operators[s.cbCountry] || {}).operators || [])[s.cbOperators];
+  if (!op || op.name === 'Manual') return;
+  for (const k of ['tGPRSAPN', 'tMMSC', 'tMMSAPN', 'tMMSProxy', 'tMMSPort', 'tMMSUserName', 'tMMSPassword', 'tGPRSUserName', 'tGPRSPassword']) s[k] = op[k] || '';
+}
+
+// ── SD card ──────────────────────────────────────────────
+async function refreshVolumes() {
+  const sel = $('#volSel'); if (!sel) return;
+  const prev = sel.value; sel.innerHTML = '';
+  if (!API) { sel.append(el('option', {}, 'SD access needs the desktop app')); sel.disabled = true; return []; }
+  const vols = await API.sdVolumes();
+  if (!vols.length) sel.append(el('option', { value: '' }, 'No SD card found — insert one, then ↻'));
+  // Pre-pick the likeliest SD card: the previous choice, a card with a config, then any FAT card.
+  const isFat = v => /fat|ms-dos|exfat/i.test(v.fs || '');
+  const pick = (vols.find(v => v.path === prev) || vols.find(v => v.hasConfig) || vols.find(isFat) || vols[0] || {}).path;
+  for (const v of vols) {
+    const gb = v.sizeBytes ? ' · ' + (v.sizeBytes / 1e9).toFixed(1) + ' GB' : '';
+    sel.append(el('option', { value: v.path, selected: v.path === pick }, v.name + gb + (v.fs ? ' · ' + v.fs : '') + (v.hasConfig ? ' · has config' : '')));
+  }
+  return vols;
+}
+function chosenVolume() { const v = $('#volSel') && $('#volSel').value; if (!v) flash('err', 'Insert an SD card and press ↻ first.'); return v; }
+
+function encodeCurrent() {
+  const c = cam(), m = MODELS[c.model];
+  const s = c.settings;
+  if (!s.cbCameraID && c.cameraId) s.tbCameraID = c.cameraId;
+  return CODEC.encode(m, s, c.modify);
+}
+
+async function writeSD() {
+  const c = cam(); const vol = chosenVolume(); if (!vol) return;
+  if (!c.modify) return flash('err', 'No tab is ticked — the camera would ignore the card. Tick at least one tab.');
+  const { bytes, warnings } = encodeCurrent();
+  try {
+    const existing = await API.sdRead(vol);
+    if (existing) {
+      const other = matchByFile(existing);
+      if (other && other.id !== c.id && !confirm('This card has the config of "' + other.name + '". Overwrite it with "' + c.name + '"?')) return;
+    }
+    const r = await API.sdWrite(vol, bytes);
+    c.lastWrite = Date.now(); c.lastWriteCard = vol; saveDB(true); renderList();
+    renderMain();
+    const box = $('#status');
+    box.append(el('div', { class: 'msg ok' }, `Written and verified: ${r.bytes} bytes → ${r.path}. Put the card in "${c.name}", switch on and open the menu to load it. `,
+      el('button', { style: 'margin-left:8px', onclick: async () => { const e = await API.sdEject(vol); flash(e.ok ? 'ok' : 'err', e.ok ? 'Card ejected — safe to remove.' : (e.message || 'Eject failed — close any Finder windows on the card.')); refreshVolumes(); } }, 'Eject card')));
+    for (const w of warnings) box.append(el('div', { class: 'msg err' }, w));
+  } catch (e) { flash('err', 'Write failed: ' + e.message); }
+}
+
+function matchByFile(bytes) {
+  for (const key of CODEC.modelsFor(MODELS, bytes)) {
+    try {
+      const d = CODEC.decode(MODELS[key], bytes);
+      const id = d.values.tbCameraID;
+      const found = id && DB.cameras.find(c => c.cameraId && c.cameraId === id);
+      if (found) return found;
+    } catch (_) {}
+  }
+  return null;
+}
+
+function applyBytes(c, bytes, sourceName) {
+  const keys = CODEC.modelsFor(MODELS, bytes);
+  if (!keys.length) { const h = CODEC.header(bytes); throw new Error(h ? 'Unknown camera type (device type ' + h.devType + ').' : 'Not a camera config file.'); }
+  const key = keys.includes(c.model) ? c.model : keys[0];
+  const d = CODEC.decode(MODELS[key], bytes);
+  if (key !== c.model && !confirm('This config is for ' + MODELS[key].name + ', but "' + c.name + '" is set as ' + MODELS[c.model].name + '. Change the camera type?')) return false;
+  c.model = key; c.settings = d.values; c.modify = d.modify || 7;
+  // A camera keeps its own ID even when it loads another camera's file as a template.
+  if (c.cameraId) c.settings.tbCameraID = c.cameraId;
+  else if (d.values.tbCameraID) c.cameraId = d.values.tbCameraID;
+  c.updatedAt = Date.now(); saveDB(true); renderList(); renderMain();
+  flash('ok', 'Loaded settings from ' + sourceName + '.');
+  return true;
+}
+
+// Read the card. fromDetail=true → load into the selected camera (with matching check).
+async function readSD(fromDetail) {
+  if (!API) return alert('SD access needs the desktop app.');
+  let vols = await refreshVolumes();
+  if (!fromDetail) vols = await API.sdVolumes();
+  const vol = fromDetail ? chosenVolume() : (vols.find(v => v.hasConfig) || vols[0] || {}).path;
+  if (!vol) { if (!fromDetail) alert('No SD card found. Insert one and try again.'); return; }
+  const bytes = await API.sdRead(vol);
+  if (!bytes) { const msg = 'No Parameter.cfg on that card — the camera may have removed it after loading. The settings saved here are still the latest.'; fromDetail ? flash('info', msg) : alert(msg); return; }
+  try {
+    const owner = matchByFile(bytes);
+    if (fromDetail) {
+      const c = cam();
+      if (owner && owner.id !== c.id && !confirm('This card belongs to "' + owner.name + '". Load its settings into "' + c.name + '" anyway?')) return;
+      applyBytes(c, bytes, 'the SD card');
+      return;
+    }
+    if (owner) {
+      select(owner.id);
+      if (confirm('Card belongs to "' + owner.name + '". Replace its saved settings with the ones on the card?')) applyBytes(owner, bytes, 'the SD card');
+      else flash('info', 'Opened "' + owner.name + '" (card camera ID matches).');
+      return;
+    }
+    const keys = CODEC.modelsFor(MODELS, bytes);
+    if (!keys.length) return alert('This card has a config for an unknown camera type.');
+    const d = CODEC.decode(MODELS[keys[0]], bytes);
+    if (!confirm('No camera in the warehouse matches this card (ID ' + (d.values.tbCameraID || 'none') + '). Add it as a new ' + MODELS[keys[0]].name + '?')) return;
+    const c = newCamera({ model: keys[0], cameraId: d.values.tbCameraID || '' });
+    DB.cameras.push(c); selId = c.id; applyBytes(c, bytes, 'the SD card');
+  } catch (e) { alert('Could not read the card: ' + e.message); }
+}
+
+async function saveFile() {
+  const c = cam(); const { bytes, warnings } = encodeCurrent();
+  if (!API) { const a = el('a', { href: URL.createObjectURL(new Blob([bytes])), download: CODEC.FILE_NAME }); a.click(); return; }
+  const p = await API.saveCfg(bytes, CODEC.FILE_NAME);
+  if (p) flash('ok', 'Saved ' + p + (warnings.length ? ' — ' + warnings.join(' ') : '') + '. Copy it to the root of the SD card as "Parameter.cfg".');
+}
+async function loadFile() {
+  if (!API) return;
+  const r = await API.openCfg(); if (!r) return;
+  try { applyBytes(cam(), r.bytes, r.name); } catch (e) { flash('err', e.message); }
+}
+function copyFrom() {
+  const c = cam();
+  const others = DB.cameras.filter(x => x.id !== c.id);
+  if (!others.length) return flash('info', 'No other cameras to copy from.');
+  const list = others.map((x, i) => (i + 1) + '. ' + x.name + ' (' + x.model + ')').join('\n');
+  const n = parseInt(prompt('Copy all settings (except Camera ID) from which camera?\n\n' + list), 10);
+  const src = others[n - 1]; if (!src) return;
+  c.model = src.model; c.modify = src.modify; c.settings = clone(src.settings);
+  c.settings.tbCameraID = c.cameraId; c.updatedAt = Date.now(); saveDB(); renderList(); renderMain();
+  flash('ok', 'Copied settings from "' + src.name + '". Camera ID kept as ' + (c.cameraId || '—') + '.');
+}
+
+// ── Scanner ──────────────────────────────────────────────
+let reader = null, stream = null, scanCode = '';
+function setCode(raw) {
+  const d = digits(raw);
+  scanCode = d.length > 15 ? d.slice(-15) : d;
+  $('#code').value = scanCode;
+  const ok = scanCode.length >= ID_DIGITS;
+  $('#btnUseCode').disabled = !ok;
+  const box = $('#found');
+  if (!ok) { box.hidden = true; return; }
+  const id = idFromImei(scanCode);
+  const existing = DB.cameras.find(c => (c.imei && c.imei === scanCode) || c.cameraId === id);
+  box.hidden = false; box.innerHTML = '';
+  if (existing) {
+    box.append('Already in warehouse: ', el('b', {}, existing.name), ' (' + existing.model + ').');
+    $('#btnUseCode').textContent = 'Open camera';
+  } else {
+    box.append('IMEI ', el('b', { class: 'mono' }, scanCode), ' → Camera ID ', el('b', { class: 'mono' }, id),
+      el('br'), 'Type: ', el('select', { id: 'newModel' }, Object.entries(MODELS).map(([k, v]) => el('option', { value: k, selected: k === (DB.lastModel || DEFAULT_MODEL) }, v.name))),
+      '  Name: ', el('input', { id: 'newName', value: 'Camera ' + String(DB.cameras.length + 1).padStart(2, '0'), style: 'width:170px' }));
+    $('#btnUseCode').textContent = 'Add camera';
+  }
+}
+async function openScanner() {
+  $('#scanModal').classList.add('show'); setCode(''); $('#code').focus();
+  $('#scanLbl').textContent = 'Starting camera…';
+  try {
+    if (API && API.cameraAccess && !(await API.cameraAccess())) throw new Error('Camera access is off. Allow it in System Settings → Privacy & Security → Camera.');
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.ITF, ZXing.BarcodeFormat.QR_CODE, ZXing.BarcodeFormat.DATA_MATRIX]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    reader = new ZXing.BrowserMultiFormatReader(hints, 250);
+    const devices = await reader.listVideoInputDevices();
+    const sel = $('#camSelect'); sel.innerHTML = '';
+    devices.forEach(d => sel.append(el('option', { value: d.deviceId }, d.label || 'Camera')));
+    if (!devices.length) throw new Error('No webcam found. Type the number or use a photo.');
+    startStream(sel.value);
+  } catch (e) { $('#scanLbl').textContent = e.message; }
+}
+function startStream(deviceId) {
+  if (!reader) return;
+  reader.reset();
+  $('#scanLbl').textContent = 'Hold the barcode inside the box';
+  reader.decodeFromVideoDevice(deviceId || undefined, 'video', (res) => {
+    if (!res) return;
+    const d = digits(res.getText());
+    if (d.length >= ID_DIGITS && d !== scanCode) { setCode(d); $('#scanLbl').textContent = '✓ Read ' + d; try { new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); } catch (_) {} }
+  }).catch(e => { $('#scanLbl').textContent = 'Camera error: ' + e.message; });
+}
+function closeScanner() { if (reader) { reader.reset(); reader = null; } $('#scanModal').classList.remove('show'); }
+async function decodeImageFile(file) {
+  const img = new Image(); img.src = URL.createObjectURL(file);
+  await img.decode();
+  const hints = new Map([[ZXing.DecodeHintType.TRY_HARDER, true],
+    [ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39, ZXing.BarcodeFormat.ITF, ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.QR_CODE]]]);
+  const core = new ZXing.MultiFormatReader(); core.setHints(hints);
+  const tryCanvas = cv => {
+    try { return core.decodeWithState(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(new ZXing.HTMLCanvasElementLuminanceSource(cv)))).getText(); }
+    catch (_) { return null; }
+  };
+  // A label is a small strip of a big photo: scan overlapping horizontal bands,
+  // upright and turned 90°, at a size where the bars are a few pixels wide.
+  for (const rot of [0, 90]) {
+    const W0 = rot ? img.naturalHeight : img.naturalWidth, H0 = rot ? img.naturalWidth : img.naturalHeight;
+    for (const target of [1600, 2400, 1000]) {
+      const s = Math.min(1, target / W0), w = Math.round(W0 * s), h = Math.round(H0 * s);
+      const full = document.createElement('canvas'); full.width = w; full.height = h;
+      const fx = full.getContext('2d');
+      if (rot) { fx.translate(w, 0); fx.rotate(Math.PI / 2); fx.drawImage(img, 0, 0, h, w); } else fx.drawImage(img, 0, 0, w, h);
+      const whole = tryCanvas(full); if (whole) return whole;
+      for (const frac of [1 / 6, 1 / 10]) {
+        const bh = Math.max(40, Math.round(h * frac));
+        for (let y = 0; y + bh <= h; y += Math.round(bh / 2)) {
+          for (const [x0, x1] of [[0, w], [0, w * 0.6], [w * 0.2, w * 0.8], [w * 0.4, w]]) {
+            const band = document.createElement('canvas'); band.width = Math.round(x1 - x0); band.height = bh;
+            band.getContext('2d').drawImage(full, x0, y, x1 - x0, bh, 0, 0, x1 - x0, bh);
+            const t = tryCanvas(band); if (t && digits(t).length >= ID_DIGITS) return t;
+          }
+        }
+        await new Promise(r => setTimeout(r)); // keep the window responsive
+      }
+    }
+  }
+  return null;
+}
+function useCode() {
+  const id = idFromImei(scanCode);
+  const existing = DB.cameras.find(c => (c.imei && c.imei === scanCode) || c.cameraId === id);
+  if (existing) { closeScanner(); select(existing.id); return; }
+  const model = ($('#newModel') || {}).value || DEFAULT_MODEL;
+  const c = newCamera({ imei: scanCode.length >= 15 ? scanCode : '', cameraId: id, model, name: ($('#newName') || {}).value });
+  DB.lastModel = model; DB.cameras.push(c); saveDB(true);
+  closeScanner(); select(c.id);
+  flash('ok', 'Added "' + c.name + '" with Camera ID ' + id + '. Adjust its settings, then write the SD card.');
+}
+
+// ── wire up ──────────────────────────────────────────────
+$('#btnScan').onclick = openScanner;
+$('#btnAdd').onclick = () => { const c = newCamera({ model: DB.lastModel || DEFAULT_MODEL }); DB.cameras.push(c); saveDB(true); select(c.id); };
+$('#search').oninput = renderList;
+$('#btnCancelScan').onclick = closeScanner;
+$('#btnUseCode').onclick = useCode;
+$('#code').oninput = e => setCode(e.target.value);
+$('#code').onkeydown = e => { if (e.key === 'Enter' && !$('#btnUseCode').disabled) useCode(); };
+$('#camSelect').onchange = e => startStream(e.target.value);
+$('#btnImg').onclick = () => $('#imgFile').click();
+$('#imgFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $('#scanLbl').textContent = 'Reading photo…';
+  const t = await decodeImageFile(f); e.target.value = '';
+  if (t) { setCode(t); $('#scanLbl').textContent = '✓ Read ' + digits(t) + ' from photo'; }
+  else $('#scanLbl').textContent = 'No barcode found in that photo — try a closer, straighter shot.';
+};
+$('#btnExport').onclick = async () => {
+  const text = JSON.stringify(DB, null, 1);
+  if (API) { const p = await API.exportJson(text, 'warehouse-' + new Date().toISOString().slice(0, 10) + '.json'); if (p) alert('Exported to ' + p); }
+};
+$('#btnImport').onclick = async () => {
+  if (!API) return;
+  const text = await API.importJson(); if (!text) return;
+  try {
+    const d = JSON.parse(text); if (!Array.isArray(d.cameras)) throw new Error('No cameras in file');
+    let added = 0;
+    for (const c of d.cameras) {
+      if (!MODELS[c.model] || DB.cameras.some(x => x.id === c.id || (c.imei && x.imei === c.imei))) continue;
+      DB.cameras.push(c); added++;
+    }
+    saveDB(true); renderList(); alert('Imported ' + added + ' camera(s). Duplicates were skipped.');
+  } catch (e) { alert('Import failed: ' + e.message); }
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#scanModal').classList.contains('show')) closeScanner(); });
+
+(async () => { await loadDB(); renderList(); renderMain(); })();
+</script>
+</body>
+</html>

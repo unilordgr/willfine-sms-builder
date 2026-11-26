@@ -1,7 +1,7 @@
 {
   "name": "willfine-sms-builder",
   "version": "1.0.15",
-  "description": "Offline SMS command builder for Willfine T4.0CG and 4.0CG wildlife cameras",
+  "description": "Offline SMS command builder, SD-card config writer and warehouse for Willfine wildlife cameras",
   "main": "main.js",
   "author": "Dimitri",
   "license": "MIT",
@@ -13,6 +13,7 @@
     "build:all": "electron-builder -mw"
   },
   "devDependencies": {
+    "@zxing/library": "^0.21.3",
     "electron": "^41.5.0",
     "electron-builder": "^25.1.8"
   },
@@ -26,7 +27,9 @@
       "willfine_T4.0CG.html",
       "willfine_4.0P.html",
       "willfine_4.0CG.html",
-      "package.json"
+      "package.json",
+      "warehouse.html",
+      "sdcard/**/*"
     ],
     "publish": {
       "provider": "github",
@@ -54,7 +57,10 @@
         }
       ],
       "category": "public.app-category.utilities",
-      "identity": null
+      "identity": null,
+      "extendInfo": {
+        "NSCameraUsageDescription": "The camera is used to scan the barcode (IMEI) on your trail cameras."
+      }
     },
     "win": {
       "target": [

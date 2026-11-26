@@ -32,6 +32,8 @@
   .tab[data-tab="newer"].active{border-bottom-color:#4cc9f0}
   .tab[data-tab="mid"].active{border-bottom-color:#52e8a0}
   .tab[data-tab="older"].active{border-bottom-color:#ff9933}
+  .tab[data-tab="wh"].active{border-bottom-color:#c792ea}
+  .tab[data-tab="wh"] .pill{background:rgba(199,146,234,.15);color:#c792ea}
   .tab .pill{
     display:inline-block;font-size:10px;font-weight:600;
     padding:2px 6px;border-radius:3px;margin-left:8px;
@@ -74,13 +76,16 @@
   <div class="tab" data-tab="older" data-src="willfine_4.0CG.html">
     4.0CG <span class="pill">PNY</span>
   </div>
+  <div class="tab" data-tab="wh" data-src="warehouse.html">
+    Warehouse <span class="pill">SD card</span>
+  </div>
   <div class="spacer"></div>
   <div class="ver" id="appVer">v1.0.4</div>
 </div>
 <div class="update-bar" id="updateBar">
   <span id="updateMsg"></span>
 </div>
-<iframe id="frame" src="willfine_T4.0CG.html" title="SMS builder"></iframe>
+<iframe id="frame" src="willfine_T4.0CG.html" title="SMS builder" allow="camera"></iframe>
 <script>
   const tabs = document.querySelectorAll('.tab');
   const frame = document.getElementById('frame');
