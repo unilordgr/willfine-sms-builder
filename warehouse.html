@@ -65,6 +65,9 @@
   .grp{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
   .grp h3{margin:0;padding:9px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:2px 18px;padding:10px 14px}
+  .grid.one{grid-template-columns:1fr;max-width:640px}
+  .grid.one .f{grid-template-columns:190px 1fr;border-bottom:1px solid #1f2731;padding:7px 0}
+  .grid.one .f:last-child{border-bottom:none}
   .f{display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:center;padding:5px 0}
   .f > span{color:#c3ccd6}
   .f .ctl{display:flex;gap:6px;align-items:center;min-width:0;flex-wrap:wrap}
@@ -389,6 +392,8 @@ function renderMain() {
   main.append(el('div', { class: 'status', id: 'status' }));
   refreshVolumes();
 
+  if (m.layout) { renderLayout(c, m, touch, main); return; }
+
   // tabs
   const tabs = el('div', { class: 'tabs' });
   m.tabTitles.forEach((title, i) => {
@@ -413,6 +418,46 @@ function renderMain() {
     if (rest.length) pane.append(group('More', rest, c, m, touch));
   } else {
     pane.append(group(curTab === 2 ? 'Camera' : 'Other', fields, c, m, touch));
+  }
+  main.append(pane);
+}
+
+// Editor laid out like the camera's own menu (models with a `layout`, e.g. T4.0CG).
+let curLayoutTab = 0;
+const SECTION_NAMES = { 1: '4G', 2: 'Cam + PIR', 4: 'Other' };
+function renderLayout(c, m, touch, main) {
+  // Which parts the camera should apply (the file's three sections).
+  main.append(el('div', { class: 'tabs', style: 'padding-bottom:10px;border-bottom:none;gap:14px;color:var(--muted)' }, 'Send to camera:',
+    ...[1, 2, 4].map(bit => el('label', { style: 'display:flex;gap:5px;align-items:center;color:#c3ccd6' },
+      el('input', { type: 'checkbox', checked: !!(c.modify & bit), onchange: e => { c.modify = e.target.checked ? (c.modify | bit) : (c.modify & ~bit); touch(); renderMain(); } }),
+      SECTION_NAMES[bit] + ' settings'))));
+  const tabs = el('div', { class: 'tabs' });
+  m.layout.forEach((tab, i) => tabs.append(el('div', { class: 't' + (curLayoutTab === i ? ' active' : ''), onclick: () => { curLayoutTab = i; renderMain(); } }, tab.title)));
+  main.append(tabs);
+  const byKey = k => m.fields.find(f => CODEC.ctlKey(f) === k);
+  const tab = m.layout[curLayoutTab] || m.layout[0];
+  const pane = el('div', { class: 'pane' });
+  const sectionOf = k => m.tabs[k] || 1;
+  for (const g of tab.groups) {
+    const items = g.items.map(([k, label]) => [byKey(k), label]).filter(([f]) => f);
+    if (!items.length) continue;
+    const off = items.some(([f]) => !(c.modify & sectionOf(CODEC.ctlKey(f))));
+    const box = el('div', { class: 'grp' + (off ? ' notapplied' : ''), style: 'max-width:680px' }, g.title ? el('h3', {}, g.title) : null);
+    const grid = el('div', { class: 'grid one' });
+    for (const [f, label] of items) grid.append(fieldRow(f, c, m, touch, label));
+    box.append(grid);
+    pane.append(box);
+  }
+  // Settings in the file that this camera's menu doesn't show — kept, but out of the way.
+  if (curLayoutTab === m.layout.length - 1) {
+    const listed = new Set(m.layout.flatMap(t => t.groups.flatMap(g => g.items.map(i => i[0]))));
+    const rest = m.fields.filter(f => { const k = CODEC.ctlKey(f); return !listed.has(k) && !PAIRED.has(k) && f.kind !== 'now'; });
+    if (rest.length) {
+      const det = el('details', { class: 'grp', style: 'padding:0' }, el('summary', { style: 'padding:9px 14px;cursor:pointer;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em' }, "Not on this camera's menu (" + rest.length + ')'));
+      const grid = el('div', { class: 'grid' });
+      for (const f of rest) grid.append(fieldRow(f, c, m, touch));
+      det.append(grid); pane.append(det);
+    }
   }
   main.append(pane);
 }
@@ -496,9 +541,9 @@ function valueControl(f, c, m, touch, disabled) {
   return el('span', {}, '?');
 }
 
-function fieldRow(f, c, m, touch) {
+function fieldRow(f, c, m, touch, label) {
   const k = CODEC.ctlKey(f);
-  const row = el('div', { class: 'f' }, el('span', {}, fieldName(m, k)));
+  const row = el('div', { class: 'f' }, el('span', {}, label || fieldName(m, k)));
   if (f.kind === 'check') {
     const s = c.settings, isOff = !!s[k];               // the Windows "OFF" tick box
     const partner = PAIRS[k] && m.fields.find(x => CODEC.ctlKey(x) === PAIRS[k]);

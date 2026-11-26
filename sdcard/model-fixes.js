@@ -16,5 +16,33 @@
   fix('T4.0CG', 'cbImageSize', ['5M', '8M', '12M', '24M', '32M'], [3, 2, 1, 0, 4], 4);
   fix('T4.0CG', 'cbSensitivity', ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'], [3, 4, 5, 6, 7, 8, 9, 10, 11]);
   if (MODELS['T4.0CG']) MODELS['T4.0CG'].fixVersion = 2;
+
+  // T4.0CG: show the editor the way the camera's own menu is laid out (from photos of the menu).
+  // Items are [setting, name on the camera]. Settings not listed appear under "Not on this camera's menu".
+  if (MODELS['T4.0CG']) {
+    MODELS['T4.0CG'].labels.cbPicSize = ['Small', 'Bigger', 'HD'];
+    MODELS['T4.0CG'].layout = [
+      { title: 'Cam', groups: [{ items: [
+        ['cbCameraID', 'Cam ID'], ['cbCameraMode', 'Camera Mode'], ['cbFlashRange', 'Flash Power'],
+        ['cbImageSize', 'Photo Size'], ['cbMultiShot', 'Multi Shot'], ['cbVideoSize', 'Video Size'], ['cbVideoLenght', 'Video Length']] }] },
+      { title: 'PIR', groups: [{ items: [
+        ['cbPIRSwitch', 'PIR Switch'], ['cbSensitivity', 'PIR Sensitivity'], ['cbDelay', 'PIR Delay'],
+        ['cbTimeLapse', 'Time Lapse'], ['cbTimer', 'Timer 1'], ['cbTimer2', 'Timer 2']] }] },
+      { title: '4G', groups: [
+        { items: [['cbSIMAutoMatch', 'SIM Auto Match']] },
+        { title: 'Manual Setup', items: [['cbCountry', 'Country'], ['cbOperators', 'Operator'], ['tGPRSAPN', 'APN'], ['tGPRSUserName', 'APN Username'], ['tGPRSPassword', 'APN Password'],
+          ['tMMSC', 'MMSC'], ['tMMSAPN', 'MMS APN'], ['tMMSProxy', 'MMS Proxy'], ['tMMSPort', 'MMS Port'], ['tMMSUserName', 'MMS Username'], ['tMMSPassword', 'MMS Password']] },
+        { title: 'SMTP', items: [['cbSMTPSwitch', 'SMTP'], ['tSMTPIP', 'Server'], ['tSMTPPort', 'Port'], ['rbEncrypt', 'Encryption'], ['tSMTPAccount', 'Username'], ['tSMTPPassword', 'Password']] },
+        { title: 'FTP(S)', items: [['cbFTPSwitch', 'FTP(S)'], ['tFTPIP', 'Server'], ['tFTPPort', 'Port'], ['tFTPAccount', 'Username'], ['tFTPPassword', 'Password']] },
+        { title: 'Send To', items: [['tPhone1', 'Phone 1'], ['tPhone2', 'Phone 2'], ['tPhone3', 'Phone 3'], ['tPhone4', 'Phone 4'],
+          ['tEmail1', 'Email 1'], ['tEmail2', 'Email 2'], ['tEmail3', 'Email 3'], ['tEmail4', 'Email 4'], ['tSMTPCamName', 'Camera Name']] },
+        { title: 'Transfer Mode', items: [['cbTransPhoto', 'Send Photos'], ['cbTransVideo', 'Send Videos']] },
+        { title: 'Send Options', items: [['cbPicSize', 'Send Photo Size'], ['PCBit', 'Send Which Shots']] },
+        { items: [['nudMMSMax', 'Max Num/Day'], ['cbSMSCtrl', 'SMS Ctrl'], ['cbDailyReport', 'Daily Report'], ['cbGPS', 'GPS']] }] },
+      { title: 'Other', groups: [{ items: [
+        ['cbLanguage', 'Language'], ['cbDateTime', 'Date Time (set from Mac)'], ['cbTZSwitch', 'Time Zone'], ['cbDateType', 'Date Type'],
+        ['cbHourSystem', 'Hour System'], ['cbStamp', 'Stamp'], ['cbBattery', 'Battery Type'], ['cbSDCycle', 'SD Cycle'], ['cbPassword', 'Password']] }] },
+    ];
+  }
   if (typeof module !== 'undefined' && module.exports) module.exports = MODELS;
 })(this);
