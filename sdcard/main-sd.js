@@ -195,7 +195,12 @@ function register(getWin) {
     if (process.platform !== 'darwin') return { ok: false, message: 'Formatting is only available on macOS.' };
     const info = await macVolumeInfo(vol);
     const dev = info.DeviceIdentifier;
-    if (!dev || info.Internal === true || !(info.RemovableMedia || info.Removable || info.Ejectable) || fs.realpathSync(vol) === '/') {
+    // The Mac's built-in SD slot reports "Internal", so judge the media itself: it must be
+    // removable (SD/USB) and must not sit on the same physical disk as macOS.
+    const boot = await macVolumeInfo('/');
+    const removable = !!(info.RemovableMedia || info.Removable || info.Ejectable) || /Secure Digital|USB/i.test(info.BusProtocol || '');
+    const sameDiskAsMac = boot.ParentWholeDisk && info.ParentWholeDisk === boot.ParentWholeDisk;
+    if (!dev || !removable || sameDiskAsMac || /apfs|hfs/i.test(info.FilesystemType || '') || fs.realpathSync(vol) === '/') {
       return { ok: false, message: 'This does not look like a removable SD card — not formatting it.' };
     }
     const name = String(label || 'CAMERA').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 11) || 'CAMERA';
