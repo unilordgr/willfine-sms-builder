@@ -9,6 +9,13 @@
 // The file is truncated right after the last field.
 (function (root) {
   const DATA_START = 0x200;
+  // How the password is written. A = exactly what the Windows tool writes.
+  const PW_FORMATS = {
+    A: { label: 'A — like Windows tool (text, switch 1=ON)' },
+    B: { label: 'B — text, switch 0=ON', flip: true },
+    C: { label: 'C — numbers, switch 1=ON', numeric: true },
+    D: { label: 'D — numbers, switch 0=ON', numeric: true, flip: true },
+  };
   const FILE_NAME = 'Parameter.cfg';
 
   function ctlKey(f) { return Array.isArray(f.ctl) ? f.ctl[0] : f.ctl; }
@@ -77,7 +84,13 @@
       let bytes;
       switch (f.kind) {
         case 'select': bytes = [(v | 0) & 0xff]; break;
-        case 'check': bytes = [v ? f.checked_value : 1 - f.checked_value]; break;
+        case 'check': {
+          let b = v ? f.checked_value : 1 - f.checked_value;
+          // Password-format experiment: some firmware reads the password switch inverted.
+          if (k === 'cbPassword' && PW_FORMATS[opts.pwFormat] && PW_FORMATS[opts.pwFormat].flip) b = 1 - b;
+          bytes = [b];
+          break;
+        }
         case 'max': bytes = [v && v.unlimited ? 0 : ((v && v.value) | 0) & 0xff]; break;
         case 'radio': bytes = [(v | 0) & 0xff]; break;
         case 'bits': {
@@ -113,6 +126,8 @@
           }
           if (s.length > f.len) { warnings.push(`${k} too long — cut to ${f.len} characters.`); s = s.slice(0, f.len); }
           bytes = strBytes(s);
+          // Password-format experiment: digits as numeric values 0–9 instead of characters "0"–"9".
+          if (k === 'tbPassword' && PW_FORMATS[opts.pwFormat] && PW_FORMATS[opts.pwFormat].numeric) bytes = bytes.map(b => b - 48);
           break;
         }
         default: throw new Error('Unknown field kind ' + f.kind);
@@ -158,7 +173,11 @@
         case 'time': values[k] = bytesStr(raw) || '000000'; break;
         case 'range': { const s = bytesStr(raw).split('-'); values[k] = [s[0] || '000000', s[1] || '000000']; break; }
         case 'now': values[k] = bytesStr(raw); break;
-        case 'text': values[k] = bytesStr(raw); break;
+        case 'text':
+          // A password stored as numeric digits (0–9 values) reads back as text digits.
+          if (k === 'tbPassword' && raw.length && raw.every(b => b <= 9)) values[k] = raw.map(b => String(b)).join('');
+          else values[k] = bytesStr(raw);
+          break;
       }
     }
     return { modify: h.modify, values };
@@ -171,6 +190,6 @@
     return Object.keys(models).filter(k => models[k].devType === h.devType);
   }
 
-  const api = { encode, decode, defaults, header, modelsFor, nowStamp, FILE_NAME, ctlKey };
+  const api = { encode, decode, defaults, header, modelsFor, nowStamp, FILE_NAME, ctlKey, PW_FORMATS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.WF_CODEC = api;
 })(this);

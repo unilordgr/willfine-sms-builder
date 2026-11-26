@@ -453,6 +453,12 @@ function fieldRow(f, c, m, touch) {
     if (partner) ctl.append(valueControl(partner, c, m, touch, isOff));
     row.append(ctl);
     if (k === 'cbPassword' && !isOff && String(s.tbPassword || '').length !== 6) row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, 'Needs exactly 6 digits, otherwise it is cleared.'));
+    if (k === 'cbPassword') {
+      row.append(el('div', { class: 'hint' }, 'Format sent to camera: ',
+        el('select', { style: 'padding:2px 6px', onchange: e => { c.pwFormat = e.target.value; touch(); } },
+          Object.entries(CODEC.PW_FORMATS).map(([key, v]) => el('option', { value: key, selected: key === (c.pwFormat || 'A') }, v.label))),
+        ' — if the camera shows 000000, try the next letter.'));
+    }
     if (k === 'cbCameraID' && !isOff && String(s.tbCameraID || '').length !== ID_DIGITS && c.model === 'T4.0CG') row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, 'Camera ID should be 12 characters.'));
   } else {
     row.append(el('div', { class: 'ctl' }, valueControl(f, c, m, touch, false)));
@@ -491,7 +497,7 @@ function encodeCurrent() {
   const c = cam(), m = MODELS[c.model];
   const s = c.settings;
   if (!s.cbCameraID && c.cameraId) s.tbCameraID = c.cameraId;
-  return CODEC.encode(m, s, c.modify);
+  return CODEC.encode(m, s, c.modify, { pwFormat: c.pwFormat || 'A' });
 }
 
 async function writeSD() {
