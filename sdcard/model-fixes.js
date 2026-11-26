@@ -37,8 +37,8 @@
         { when: { show: [1] }, items: [['cbPIRSwitch', 'PIR Switch'], ['cbSensitivity', 'PIR Sensitivity'], ['cbDelay', 'PIR Delay']] },
         { items: [['cbTimeLapse', 'Time Lapse'], ['cbTimer', 'Timer 1'], ['cbTimer2', 'Timer 2']] }] },
       { title: '4G', groups: [
-        { title: 'SIM / Manual Setup', when: { show: [1] }, items: [['cbSIMAutoMatch', 'SIM Auto Match'], ['cbCountry', 'Country'], ['cbOperators', 'Operator'], ['tGPRSAPN', 'APN'], ['tGPRSUserName', 'APN Username'], ['tGPRSPassword', 'APN Password'],
-          ['tMMSC', 'MMSC'], ['tMMSAPN', 'MMS APN'], ['tMMSProxy', 'MMS Proxy'], ['tMMSPort', 'MMS Port'], ['tMMSUserName', 'MMS Username'], ['tMMSPassword', 'MMS Password']] },
+        { title: 'SIM Auto Match · Manual Setup (4G)', when: { show: [1] }, items: [['cbSIMAutoMatch', 'SIM Auto Match'],
+          ['tGPRSAPN', 'APN'], ['tGPRSUserName', 'User Name'], ['tGPRSPassword', 'Password']] },
         { title: 'SMTP', when: { show: [1] }, items: [['cbSMTPSwitch', 'SMTP'], ['tSMTPIP', 'Server'], ['tSMTPPort', 'Port'], ['rbEncrypt', 'Encryption'], ['tSMTPAccount', 'Username'], ['tSMTPPassword', 'Password']] },
         { title: 'FTP(S)', when: { show: [0, 2] }, items: [['cbFTPSwitch', 'FTP(S)'], ['tFTPIP', 'Server'], ['tFTPPort', 'Port'], ['tFTPAccount', 'Username'], ['tFTPPassword', 'Password']] },
         { title: 'Send To', items: [['tPhone1', 'Phone 1'], ['tPhone2', 'Phone 2'], ['tPhone3', 'Phone 3'], ['tPhone4', 'Phone 4'],
