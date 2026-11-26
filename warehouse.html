@@ -66,6 +66,11 @@
   .grp h3{margin:0;padding:9px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:2px 18px;padding:10px 14px}
   .grid.one{grid-template-columns:1fr;max-width:640px}
+  .acc{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease}
+  .acc.closed{grid-template-rows:0fr}
+  .acc > div{overflow:hidden;min-height:0}
+  .acc .grid{padding-top:0}
+  .grp h3 .state{float:right;text-transform:none;letter-spacing:0;color:var(--muted);font-weight:400}
   .grid.one .f{grid-template-columns:190px 1fr;border-bottom:1px solid #1f2731;padding:7px 0}
   .grid.one .f:last-child{border-bottom:none}
   .f{display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:center;padding:5px 0}
@@ -431,6 +436,9 @@ function renderMain() {
 
 // Editor laid out like the camera's own menu (models with a `layout`, e.g. T4.0CG).
 let curLayoutTab = 0;
+const accState = {};
+// Settings whose value opens or closes an accordion section (re-render when they change).
+const CONTROLLERS = new Set(Object.values(MODELS).flatMap(m => (m.layout || []).flatMap(t => t.groups.filter(g => g.when).map(g => g.items[0][0]))));
 const SECTION_NAMES = { 1: '4G', 2: 'Cam + PIR', 4: 'Other' };
 function renderLayout(c, m, touch, main) {
   // Which parts the camera should apply (the file's three sections).
@@ -445,20 +453,39 @@ function renderLayout(c, m, touch, main) {
   const tab = m.layout[curLayoutTab] || m.layout[0];
   const pane = el('div', { class: 'pane' });
   const sectionOf = k => m.tabs[k] || 1;
-  for (const g of tab.groups) {
+  const mkRow = ([f, label, note]) => {
+    const row = fieldRow(f, c, m, touch, label);
+    if (note) { row.style.opacity = '.6'; row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, note)); }
+    return row;
+  };
+  tab.groups.forEach((g, gi) => {
     const items = g.items.map(([k, label, note]) => [byKey(k), label, note]).filter(([f]) => f);
-    if (!items.length) continue;
+    if (!items.length) return;
     const off = items.some(([f]) => !(c.modify & sectionOf(CODEC.ctlKey(f))));
-    const box = el('div', { class: 'grp' + (off ? ' notapplied' : ''), style: 'max-width:680px' }, g.title ? el('h3', {}, g.title) : null);
-    const grid = el('div', { class: 'grid one' });
-    for (const [f, label, note] of items) {
-      const row = fieldRow(f, c, m, touch, label);
-      if (note) { row.style.opacity = '.6'; row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, note)); }
-      grid.append(row);
+    const box = el('div', { class: 'grp' + (off ? ' notapplied' : ''), style: 'max-width:680px' });
+    if (!g.when) {
+      if (g.title) box.append(el('h3', {}, g.title));
+      const grid = el('div', { class: 'grid one' });
+      items.forEach(it => grid.append(mkRow(it)));
+      box.append(grid); pane.append(box); return;
     }
-    box.append(grid);
+    // Accordion: the first setting is the switch; the rest fold away while it is off.
+    const [head, ...rest] = items;
+    const open = g.when.show.includes(c.settings[CODEC.ctlKey(head[0])]);
+    const key = curLayoutTab + ':' + gi, was = accState[key];
+    accState[key] = open;
+    const ctl = m.labels[head[0].ctl] || [];
+    const stateText = open ? '' : (ctl[c.settings[CODEC.ctlKey(head[0])]] || 'OFF') + ' — details hidden';
+    if (g.title) box.append(el('h3', {}, g.title, el('span', { class: 'state' }, stateText)));
+    const top = el('div', { class: 'grid one', style: rest.length ? 'padding-bottom:0' : '' }); top.append(mkRow(head)); box.append(top);
+    if (rest.length) {
+      const inner = el('div', { class: 'grid one' }); rest.forEach(it => inner.append(mkRow(it)));
+      const acc = el('div', { class: 'acc' + ((was === undefined ? open : was) ? '' : ' closed') }, el('div', {}, inner));
+      box.append(acc);
+      if (was !== undefined && was !== open) setTimeout(() => { void acc.offsetHeight; acc.classList.toggle('closed', !open); }, 30);
+    }
     pane.append(box);
-  }
+  });
   // Settings in the file that this camera's menu doesn't show — kept, but out of the way.
   if (curLayoutTab === m.layout.length - 1) {
     const listed = new Set(m.layout.flatMap(t => t.groups.flatMap(g => g.items.map(i => i[0]))));
@@ -500,7 +527,7 @@ function valueControl(f, c, m, touch, disabled) {
         set(+e.target.value);
         if (k === 'cbCountry') { s.cbOperators = 0; applyOperator(c, m); renderMain(); }
         if (k === 'cbOperators') { applyOperator(c, m); renderMain(); }
-        if (k === 'cbSIMAutoMatch') renderMain();
+        if (k === 'cbSIMAutoMatch' || CONTROLLERS.has(k)) renderMain();
       } }, opts.map((t, i) => el('option', { value: i, selected: i === s[k] }, t)));
       if (/^cb(Country|Operators)$/.test(k) && s.cbSIMAutoMatch === 0) sel.disabled = true;
       return sel;
