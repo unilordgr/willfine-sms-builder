@@ -155,8 +155,8 @@
     <button id="btnAdd">Add camera</button>
     <input id="search" type="search" placeholder="Search name, IMEI, ID, type, notes">
     <span style="flex:1"></span>
-    <button id="btnExport" title="Save all cameras to a backup file">Export</button>
-    <button id="btnImport" title="Add cameras from a backup file">Import</button>
+    <button id="btnOpenProject" title="Open a project file from another computer or teammate and merge its cameras">Open project…</button>
+    <button id="btnShareProject" title="Save all cameras to one file you can send to another computer or teammate">Share project…</button>
   </div>
   <div id="homeStatus"></div>
   <div class="cards" id="list"></div>
@@ -1147,29 +1147,61 @@ $('#imgFile').onchange = async e => {
   if (t) { setCode(t); $('#scanLbl').textContent = '✓ Read ' + digits(t) + ' from photo'; }
   else $('#scanLbl').textContent = 'No barcode found in that photo — try a closer, straighter shot.';
 };
-$('#btnExport').onclick = async () => {
-  const text = JSON.stringify(DB, null, 1);
-  if (API) { const p = await API.exportJson(text, 'warehouse-' + new Date().toISOString().slice(0, 10) + '.json'); if (p) alert('Exported to ' + p); }
+// ── Project files (.camproj): share the camera list with another computer or teammate ──
+$('#btnShareProject').onclick = async () => {
+  if (!API || !API.projectSave) return;
+  const data = { type: 'camera-management-project', version: 1, exportedAt: Date.now(), cameras: DB.cameras, defaults: DB.defaults || {} };
+  const p = await API.projectSave(JSON.stringify(data, null, 1), 'Cameras ' + new Date().toISOString().slice(0, 10) + '.camproj');
+  if (!p) return;
+  const box = $('#homeStatus'); box.innerHTML = '';
+  box.append(el('div', { class: 'msg ok' }, 'Saved ' + DB.cameras.length + ' camera' + (DB.cameras.length === 1 ? '' : 's') + ' to ' + p + '. Send this file to the other computer; opening it there merges the cameras. It includes FTP and SMTP passwords, so share it only with your team. ',
+    el('button', { style: 'margin-left:8px', onclick: () => API.projectShowFile(p) }, 'Show file')));
 };
-$('#btnImport').onclick = async () => {
-  if (!API) return;
-  const text = await API.importJson(); if (!text) return;
-  try {
-    const d = JSON.parse(text); if (!Array.isArray(d.cameras)) throw new Error('No cameras in file');
-    let added = 0;
-    for (const c of d.cameras) {
-      if (!MODELS[c.model] || DB.cameras.some(x => x.id === c.id || (c.imei && x.imei === c.imei))) continue;
-      DB.cameras.push(c); added++;
-    }
-    saveDB(); renderList(); alert('Imported ' + added + ' camera(s). Duplicates were skipped.');
-  } catch (e) { alert('Import failed: ' + e.message); }
+$('#btnOpenProject').onclick = async () => {
+  if (!API || !API.projectOpen) return;
+  const r = await API.projectOpen(); if (r) openProjectText(r.text, r.name);
 };
+
+// Merge cameras from a project file: new ones are added, an existing camera is replaced only if
+// the file's copy was changed more recently. Nothing is deleted.
+function openProjectText(text, name) {
+  let d;
+  try { d = JSON.parse(text); } catch (_) { return flash('err', '"' + name + '" is not a Camera Management project file.'); }
+  if (!d || !Array.isArray(d.cameras)) return flash('err', '"' + name + '" has no cameras in it.');
+  const find = x => DB.cameras.find(c => c.id === x.id) || (x.imei && DB.cameras.find(c => c.imei === x.imei)) || (x.cameraId && DB.cameras.find(c => c.cameraId === x.cameraId));
+  const plan = { add: [], update: [], same: [], skip: 0 };
+  for (const x of d.cameras) {
+    if (!x || !MODELS[x.model]) { plan.skip++; continue; }
+    const ex = find(x);
+    if (!ex) plan.add.push(x);
+    else if ((x.updatedAt || 0) > (ex.updatedAt || 0)) plan.update.push([ex, x]);
+    else plan.same.push(x);
+  }
+  const when = d.exportedAt ? ' (saved ' + fmtDate(d.exportedAt) + ')' : '';
+  const summary = plan.add.length + ' new, ' + plan.update.length + ' newer than yours, ' + plan.same.length + ' already up to date' + (plan.skip ? ', ' + plan.skip + ' of an unknown camera type' : '');
+  if (!plan.add.length && !plan.update.length) return flash('info', '"' + name + '"' + when + ': ' + summary + ' — nothing to change.');
+  if (!confirm('Merge "' + name + '"' + when + '?\n\n' + summary + '.\n\nNew cameras are added and newer ones replace yours. Nothing is deleted.')) return;
+  for (const x of plan.add) DB.cameras.push(clone(x));
+  for (const [ex, x] of plan.update) { const keepId = ex.id; Object.keys(ex).forEach(k => delete ex[k]); Object.assign(ex, clone(x), { id: keepId }); }
+  for (const [model, def] of Object.entries(d.defaults || {})) {
+    DB.defaults = DB.defaults || {};
+    if (!DB.defaults[model] || (def.savedAt || 0) > (DB.defaults[model].savedAt || 0)) DB.defaults[model] = clone(def);
+  }
+  migrateDB(); saveDB(); goHome();
+  flash('ok', 'Merged "' + name + '": ' + plan.add.length + ' added, ' + plan.update.length + ' updated.');
+}
+async function takePendingProjects() {
+  if (!API || !API.projectPending) return;
+  for (const p of await API.projectPending()) openProjectText(p.text, p.name);
+}
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#scanModal').classList.contains('show')) closeScanner(); });
 
 (async () => {
   await loadDB(); goHome();
   // Refresh the card slot when a card is inserted or removed (and every few seconds as a fallback).
   if (API && API.onSdChanged) API.onSdChanged(() => { try { updateSlot(); } catch (_) {} });
+  if (API && API.onProjectFile) API.onProjectFile(() => { try { if (view !== 'home') goHome(); takePendingProjects(); } catch (_) {} });
+  takePendingProjects();
   setInterval(() => { if (!document.hidden) updateSlot(); }, 5000);
 })();
 </script>

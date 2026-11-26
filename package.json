@@ -88,6 +88,14 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": "camproj",
+        "name": "Camera Management project",
+        "role": "Editor",
+        "description": "Camera Management project"
+      }
+    ]
   }
 }

@@ -339,6 +339,32 @@ function register(getWin) {
     return { name: path.basename(r.filePaths[0]), bytes: new Uint8Array(fs.readFileSync(r.filePaths[0])) };
   });
 
+  // Project files (.camproj): the whole camera list, shared between computers and teammates.
+  ipcMain.handle('project:save', async (_e, text, suggested) => {
+    const prefs = readPrefs();
+    const r = await dialog.showSaveDialog(getWin(), {
+      title: 'Share project', buttonLabel: 'Save',
+      defaultPath: path.join(prefs.lastProjectDir || app.getPath('documents'), suggested || 'Cameras.camproj'),
+      filters: [{ name: 'Camera Management project', extensions: ['camproj'] }],
+    });
+    if (r.canceled || !r.filePath) return null;
+    fs.writeFileSync(r.filePath, text);
+    prefs.lastProjectDir = path.dirname(r.filePath); writePrefs(prefs);
+    return r.filePath;
+  });
+  ipcMain.handle('project:open', async () => {
+    const prefs = readPrefs();
+    const r = await dialog.showOpenDialog(getWin(), {
+      title: 'Open project', buttonLabel: 'Open', properties: ['openFile'],
+      defaultPath: prefs.lastProjectDir || app.getPath('downloads'),
+      filters: [{ name: 'Camera Management project', extensions: ['camproj', 'json'] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    prefs.lastProjectDir = path.dirname(r.filePaths[0]); writePrefs(prefs);
+    return { name: path.basename(r.filePaths[0]), text: fs.readFileSync(r.filePaths[0], 'utf8') };
+  });
+  ipcMain.handle('project:showFile', (_e, p) => { if (p) shell.showItemInFolder(p); return true; });
+
   ipcMain.handle('file:exportJson', async (_e, text, suggested) => {
     const r = await dialog.showSaveDialog(getWin(), {
       title: 'Export warehouse', defaultPath: suggested || 'warehouse.json',

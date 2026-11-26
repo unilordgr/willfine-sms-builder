@@ -300,6 +300,23 @@ ipcMain.handle('get-version', () => app.getVersion());
 sdcard.register(() => win);
 
 // ── Lifecycle ─────────────────────────────────────────────
+// A .camproj file double-clicked in Finder / Explorer is queued; the Cameras page picks it up
+// as soon as it is ready (a ping tells an already-open page to look).
+let pendingProjects = [];
+function sendProject(file) {
+  try { pendingProjects.push({ name: path.basename(file), text: fs.readFileSync(file, 'utf8') }); } catch (_) { return; }
+  if (win) win.webContents.send('project-file');
+}
+app.on('open-file', (e, file) => { e.preventDefault(); if (/\.camproj$/i.test(file)) sendProject(file); });
+const argProject = process.argv.find(a => /\.camproj$/i.test(a));
+if (argProject) sendProject(argProject);
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', (_e, argv) => {
+  const f = argv.find(a => /\.camproj$/i.test(a)); if (f) sendProject(f);
+  if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+});
+ipcMain.handle('project:pending', () => { const p = pendingProjects; pendingProjects = []; return p; });
+
 app.whenReady().then(() => {
   buildMenu();
   createWindow();
