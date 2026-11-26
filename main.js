@@ -4,6 +4,10 @@ const fs = require('fs');
 const https = require('https');
 const os = require('os');
 const { spawn, exec } = require('child_process');
+const sdcard = require('./sdcard/main-sd');
+
+// Keep the saved cameras in the same place whatever the app is called (it was "Willfine SMS Builder").
+app.setPath('userData', path.join(app.getPath('appData'), 'willfine-sms-builder'));
 
 let win;
 let pendingUpdate = null;     // { path, version, platform }
@@ -16,7 +20,7 @@ function createWindow() {
     height: 900,
     minWidth: 720,
     minHeight: 520,
-    title: 'Willfine SMS Builder',
+    title: 'Camera Management',
     backgroundColor: '#0f1419',
     autoHideMenuBar: false,
     webPreferences: {
@@ -58,7 +62,7 @@ async function checkForUpdates() {
     const choice = await dialog.showMessageBox(win, {
       type: 'info',
       title: 'Update Available',
-      message: `Willfine SMS Builder ${latestTag} is available`,
+      message: `Camera Management ${latestTag} is available`,
       detail: `You're running ${currentVer}.\n\nThe update will download in the background and install automatically when you close the app.`,
       buttons: ['Update', 'Not now'],
       defaultId: 0,
@@ -108,7 +112,7 @@ async function downloadInBackground(releaseData) {
   const choice = await dialog.showMessageBox(win, {
     type: 'info',
     title: 'Download Finished',
-    message: `Willfine SMS Builder ${releaseData.tag_name} is ready to install`,
+    message: `Camera Management ${releaseData.tag_name} is ready to install`,
     detail: 'Restart the app now to apply the update, or do it later — it will also install automatically the next time you close the app.',
     buttons: ['Restart now', 'Later'],
     defaultId: 0,
@@ -174,7 +178,7 @@ function maybeInstallPendingUpdate() {
 }
 
 function installMac(dmgPath) {
-  const appName = 'Willfine SMS Builder.app';
+  const appName = 'Camera Management.app';
   let targetApp = `/Applications/${appName}`;
   if (app.isPackaged) {
     const bundle = path.dirname(path.dirname(path.dirname(process.execPath)));
@@ -268,10 +272,11 @@ function buildMenu() {
     {
       label: 'File',
       submenu: [
-        { label: 'Home (pick a camera)', accelerator: 'CmdOrCtrl+H', click: () => win && win.loadFile('index.html') },
+        { label: 'Cameras', accelerator: 'CmdOrCtrl+H', click: () => win && win.loadFile('index.html') },
         { label: 'Open T4.0CG New', accelerator: 'CmdOrCtrl+1', click: () => win && win.loadFile('willfine_T4.0CG.html') },
         { label: 'Open 4.0P Pro', accelerator: 'CmdOrCtrl+2', click: () => win && win.loadFile('willfine_4.0P.html') },
         { label: 'Open 4.0CG PNY', accelerator: 'CmdOrCtrl+3', click: () => win && win.loadFile('willfine_4.0CG.html') },
+
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
@@ -292,8 +297,26 @@ function buildMenu() {
 
 // ── IPC ───────────────────────────────────────────────────
 ipcMain.handle('get-version', () => app.getVersion());
+sdcard.register(() => win);
 
 // ── Lifecycle ─────────────────────────────────────────────
+// A .camproj file double-clicked in Finder / Explorer is queued; the Cameras page picks it up
+// as soon as it is ready (a ping tells an already-open page to look).
+let pendingProjects = [];
+function sendProject(file) {
+  try { pendingProjects.push({ name: path.basename(file), text: fs.readFileSync(file, 'utf8') }); } catch (_) { return; }
+  if (win) win.webContents.send('project-file');
+}
+app.on('open-file', (e, file) => { e.preventDefault(); if (/\.camproj$/i.test(file)) sendProject(file); });
+const argProject = process.argv.find(a => /\.camproj$/i.test(a));
+if (argProject) sendProject(argProject);
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', (_e, argv) => {
+  const f = argv.find(a => /\.camproj$/i.test(a)); if (f) sendProject(f);
+  if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
+});
+ipcMain.handle('project:pending', () => { const p = pendingProjects; pendingProjects = []; return p; });
+
 app.whenReady().then(() => {
   buildMenu();
   createWindow();

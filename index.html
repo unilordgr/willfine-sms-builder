@@ -2,24 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Willfine SMS Builder</title>
+<title>Camera Management</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:#0f1419;color:#e6edf3;
+  html,body{height:100%;overflow:hidden;background:#0e1513;color:#e3eae4;
     font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
   .switcher{
-    display:flex;align-items:stretch;background:#0a0e13;
-    border-bottom:1px solid #2a3340;height:44px;
+    display:flex;align-items:stretch;background:#0b110f;
+    border-bottom:1px solid #29362f;height:44px;
     -webkit-user-select:none;user-select:none
   }
   .brand{
     display:flex;align-items:center;padding:0 18px;
-    color:#e6edf3;font-weight:700;font-size:13px;
-    border-right:1px solid #2a3340;letter-spacing:.02em
+    color:#e3eae4;font-weight:600;font-size:14px;font-family:"Avenir Next","Avenir",-apple-system,sans-serif;
+    border-right:1px solid #29362f
   }
   .brand .dot{
     display:inline-block;width:8px;height:8px;border-radius:50%;
-    background:linear-gradient(135deg,#4cc9f0 0%,#52e8a0 50%,#ff9933 100%);
+    background:#e8c547;
     margin-right:8px
   }
   .tab{
@@ -32,6 +32,14 @@
   .tab[data-tab="newer"].active{border-bottom-color:#4cc9f0}
   .tab[data-tab="mid"].active{border-bottom-color:#52e8a0}
   .tab[data-tab="older"].active{border-bottom-color:#ff9933}
+  .tab[data-tab="wh"].active{border-bottom-color:#e8c547}
+  .tab[data-tab="wh"]{color:#cfd8d2;font-weight:600}
+  .group-label{display:flex;align-items:center;padding:0 6px 0 18px;color:#5f6f67;font-size:12px;border-left:1px solid #29362f}
+  .smsbar{display:none;align-items:center;gap:10px;padding:0 14px;height:34px;background:#141c18;border-bottom:1px solid #29362f;font-size:12px;color:#cfd8d2}
+  .smsbar.show{display:flex}
+  .smsbar button{background:#1f2a26;color:#e3eae4;border:1px solid #29362f;border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer}
+  .smsbar b{color:#e8c547;font-weight:600}
+  iframe.with-sms{height:calc(100vh - 78px)}
   .tab .pill{
     display:inline-block;font-size:10px;font-weight:600;
     padding:2px 6px;border-radius:3px;margin-left:8px;
@@ -64,8 +72,10 @@
 </head>
 <body>
 <div class="switcher">
-  <div class="brand"><span class="dot"></span>Willfine SMS Builder</div>
-  <div class="tab active" data-tab="newer" data-src="willfine_T4.0CG.html">
+  <div class="brand"><span class="dot"></span>Camera Management</div>
+  <div class="tab active" data-tab="wh" data-src="warehouse.html">Cameras</div>
+  <div class="group-label">SMS builders</div>
+  <div class="tab" data-tab="newer" data-src="willfine_T4.0CG.html">
     T4.0CG <span class="pill">new</span>
   </div>
   <div class="tab" data-tab="mid" data-src="willfine_4.0P.html">
@@ -80,17 +90,28 @@
 <div class="update-bar" id="updateBar">
   <span id="updateMsg"></span>
 </div>
-<iframe id="frame" src="willfine_T4.0CG.html" title="SMS builder"></iframe>
+<div class="smsbar" id="smsbar"><button id="smsBack">← Cameras</button><span id="smsFor"></span></div>
+<iframe id="frame" src="warehouse.html" title="Camera Management" allow="camera *"></iframe>
 <script>
   const tabs = document.querySelectorAll('.tab');
   const frame = document.getElementById('frame');
-  tabs.forEach(t => {
-    t.addEventListener('click', () => {
-      tabs.forEach(x => x.classList.remove('active'));
-      t.classList.add('active');
-      frame.src = t.dataset.src;
-    });
-  });
+  function activate(src) {
+    tabs.forEach(x => x.classList.toggle('active', x.dataset.src === src));
+    frame.src = src;
+  }
+  function hideSmsBar() { document.getElementById('smsbar').classList.remove('show'); frame.classList.remove('with-sms'); }
+  tabs.forEach(t => t.addEventListener('click', () => { hideSmsBar(); activate(t.dataset.src); }));
+  // Called by the Cameras page: open the SMS builder for one camera.
+  window.openSms = (page, cam) => {
+    activate(page);
+    const bar = document.getElementById('smsbar'), who = document.getElementById('smsFor');
+    who.textContent = '';
+    who.append('SMS commands for ');
+    const b = document.createElement('b'); b.textContent = cam && cam.name ? cam.name : 'this camera'; who.append(b);
+    if (cam && cam.simPhone) who.append(' — send them to ' + cam.simPhone);
+    bar.classList.add('show'); frame.classList.add('with-sms');
+  };
+  document.getElementById('smsBack').onclick = () => { hideSmsBar(); activate('warehouse.html'); };
 
   // Version display
   if (window.electronAPI) {
