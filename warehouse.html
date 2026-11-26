@@ -2,12 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Warehouse — Willfine SD Card</title>
+<title>Camera Management</title>
 <style>
+  /* Forest palette: spruce night, bark panels, lichen ink, one trail-marker yellow. */
   :root{
-    --bg:#0f1419; --panel:#1a2028; --panel2:#222a34; --ink:#e6edf3;
-    --muted:#8b98a8; --line:#2a3340; --accent:#c792ea; --ok:#7ed957;
-    --warn:#f9a03f; --danger:#e05a5a; --field:#0b1016;
+    --bg:#0e1513; --panel:#17201d; --panel2:#1f2a26; --ink:#e3eae4;
+    --muted:#8a9a92; --line:#29362f; --accent:#e8c547; --accent-ink:#1d1a08; --ok:#8fd16a;
+    --warn:#f0a548; --danger:#e3685a; --field:#0b110f;
+    --m-t40:#4cc9f0; --m-p:#52e8a0; --m-cg:#ff9933; --m-other:#a3b1aa;
+    --head:"Avenir Next","Avenir","Segoe UI",-apple-system,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
@@ -15,15 +18,53 @@
   button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);
     background:var(--panel2);color:var(--ink);padding:7px 12px}
   button:hover{border-color:#3a4656}
-  button.primary{background:var(--accent);border-color:var(--accent);color:#170c20;font-weight:600}
+  button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
   button.ok{background:var(--ok);border-color:var(--ok);color:#0c1a05;font-weight:600}
   button.danger{color:var(--danger)}
   button:disabled{opacity:.45;cursor:default}
   input,select,textarea{font:inherit;color:var(--ink);background:var(--field);
     border:1px solid var(--line);border-radius:5px;padding:6px 8px;min-width:0}
-  input:focus,select:focus,textarea:focus{outline:2px solid rgba(199,146,234,.45);border-color:var(--accent)}
+  input:focus,select:focus,textarea:focus{outline:2px solid rgba(232,197,71,.45);border-color:var(--accent)}
+  button:focus-visible,.t:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
   input:disabled,select:disabled{opacity:.45}
   .app{display:grid;grid-template-columns:300px 1fr;height:100vh}
+  /* ── home: camera fleet ── */
+  .home{height:100vh;overflow:auto}
+  .homebar{display:flex;align-items:flex-end;gap:24px;padding:26px 28px 18px;flex-wrap:wrap}
+  .homebar h1{font:600 30px/1.1 var(--head);margin:0;letter-spacing:-.01em}
+  .homebar .sub{color:var(--muted);margin-top:6px}
+  .slot{margin-left:auto;display:flex;align-items:center;gap:14px;min-width:340px;max-width:560px;
+    padding:12px 16px;border-radius:12px;border:1px dashed #3a4a42;background:#121b18}
+  .slot.in{border-style:solid;border-color:#55502a;background:linear-gradient(90deg,#1c1d12,#141c18)}
+  .slot .sd{width:30px;height:38px;flex:none;border-radius:3px 9px 3px 3px;background:#2a3631;position:relative}
+  .slot.in .sd{background:var(--accent)}
+  .slot .sd:after{content:"";position:absolute;left:5px;right:5px;top:5px;height:8px;
+    background:repeating-linear-gradient(90deg,rgba(0,0,0,.35) 0 2px,transparent 2px 5px)}
+  .slot .what{flex:1;min-width:0}
+  .slot .what b{display:block;font:600 15px var(--head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot .what span{color:var(--muted);font-size:12px}
+  .slot .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .toolbar{display:flex;gap:8px;padding:0 28px 16px;flex-wrap:wrap;align-items:center}
+  .toolbar input[type=search]{width:280px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;padding:0 28px 40px}
+  .cam{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 16px 14px 20px;
+    display:flex;flex-direction:column;gap:10px;min-height:168px}
+  .cam:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:4px;border-radius:0 4px 4px 0;background:var(--mcol,var(--m-other))}
+  .cam.oncard{border-color:#55502a;box-shadow:0 0 0 1px #55502a inset}
+  .cam h2{margin:0;font:600 18px/1.2 var(--head);cursor:pointer}
+  .cam h2:hover{text-decoration:underline;text-decoration-color:var(--muted)}
+  .cam .model{font-size:12px;color:var(--mcol,var(--m-other))}
+  .cam dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+  .cam dt{color:var(--muted)} .cam dd{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cam .acts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto}
+  .cam .acts button{padding:6px 10px;font-size:12px}
+  .cam .here{position:absolute;right:12px;top:12px;font-size:11px;color:var(--accent-ink);background:var(--accent);border-radius:20px;padding:2px 9px;font-weight:600}
+  .emptyhome{grid-column:1/-1;padding:48px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
+  .emptyhome h2{color:var(--ink);font:600 20px var(--head);margin:0 0 8px}
+  #homeStatus{padding:0 28px}
+  .crumb{display:flex;align-items:center;gap:14px;padding:14px 20px 0}
+  .crumb h1{font:600 22px var(--head);margin:0}
   /* sidebar */
   .side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:#0c1116}
   .side-top{padding:12px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
@@ -46,7 +87,7 @@
   .empty h2{color:var(--ink);margin:0;font-size:18px}
   .head{padding:16px 20px;border-bottom:1px solid var(--line);display:grid;
     grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 14px;background:var(--panel)}
-  .head label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .head label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px}
   .head input,.head select{font-size:14px}
   .head .name input{font-size:16px;font-weight:600}
   .sdbar{padding:12px 20px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#141a21}
@@ -56,14 +97,14 @@
   .msg{margin:10px 0 0;padding:8px 12px;border-radius:6px;font-size:12px;border-left:3px solid}
   .msg.ok{background:#14240f;border-color:var(--ok);color:#b9e9a0}
   .msg.err{background:#2a1414;border-color:var(--danger);color:#f2b0b0}
-  .msg.info{background:#1d1626;border-color:var(--accent);color:#ddc6f0}
+  .msg.info{background:#22200f;border-color:var(--accent);color:#efe2a8}
   .tabs{display:flex;gap:2px;padding:14px 20px 0;border-bottom:1px solid var(--line)}
   .tabs .t{padding:8px 14px;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;cursor:pointer;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tabs .t.active{background:var(--panel);border-color:var(--line);color:var(--ink)}
   .tabs .t input{margin:0}
   .pane{padding:16px 20px 40px}
   .grp{background:var(--panel);border:1px solid var(--line);border-radius:8px;margin-bottom:14px}
-  .grp h3{margin:0;padding:9px 14px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .grp h3{margin:0;padding:10px 14px;border-bottom:1px solid var(--line);font:600 13px var(--head);color:#cfd8d2}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:2px 18px;padding:10px 14px}
   .grid.one{grid-template-columns:1fr;max-width:640px}
   .acc{display:grid;grid-template-rows:1fr;transition:grid-template-rows .25s ease}
@@ -80,7 +121,7 @@
   .f .hint{grid-column:2;color:var(--muted);font-size:11px;margin-top:-2px}
   .onoff{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden;flex:none}
   .onoff button{border:0;border-radius:0;padding:5px 10px;background:var(--field);color:var(--muted)}
-  .onoff button.on{background:var(--accent);color:#170c20;font-weight:600}
+  .onoff button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
   .pics label{display:inline-flex;gap:3px;align-items:center;color:#c3ccd6}
   .note{color:var(--muted);font-size:12px;padding:0 14px 10px}
   .notapplied{opacity:.55}
@@ -95,29 +136,32 @@
   .video .lbl{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#fff;text-shadow:0 1px 3px #000;font-size:12px}
   .card .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .card .row input{flex:1;font-size:15px;letter-spacing:.04em}
-  .found{font-size:13px;padding:10px;border-radius:6px;background:#1d1626;border:1px solid #3b2a4c}
+  .found{font-size:13px;padding:10px;border-radius:6px;background:#22200f;border:1px solid #4a4219}
   .found b{color:var(--accent)}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 </style>
 </head>
 <body>
-<div class="app">
-  <aside class="side">
-    <div class="side-top">
-      <button class="primary" id="btnScan">📷 Scan camera barcode</button>
-      <button id="btnAdd">+ Add manually</button>
-      <input id="search" type="search" placeholder="Search name, IMEI, ID, model…">
+<div class="home" id="home">
+  <div class="homebar">
+    <div>
+      <h1>Cameras</h1>
+      <div class="sub" id="count"></div>
     </div>
-    <div class="list" id="list"></div>
-    <div class="side-foot">
-      <span class="count" id="count"></span>
-      <span style="flex:1"></span>
-      <button id="btnExport" title="Export all cameras to a JSON file">Export</button>
-      <button id="btnImport" title="Import cameras from a JSON file">Import</button>
-    </div>
-  </aside>
-  <main class="main" id="main"></main>
+    <div class="slot" id="slot" aria-live="polite"></div>
+  </div>
+  <div class="toolbar">
+    <button class="primary" id="btnScan">Scan camera barcode</button>
+    <button id="btnAdd">Add camera</button>
+    <input id="search" type="search" placeholder="Search name, IMEI, ID, type, notes">
+    <span style="flex:1"></span>
+    <button id="btnExport" title="Save all cameras to a backup file">Export</button>
+    <button id="btnImport" title="Add cameras from a backup file">Import</button>
+  </div>
+  <div id="homeStatus"></div>
+  <div class="cards" id="list"></div>
 </div>
+<main class="main" id="main" hidden style="height:100vh"></main>
 
 <div class="modal" id="scanModal">
   <div class="card">
@@ -303,28 +347,165 @@ function imeiFromText(texts) {
 
 // ── UI: messages ─────────────────────────────────────────
 function flash(kind, text) {
-  const box = $('#status'); if (!box) return;
+  const box = view === 'camera' ? $('#status') : $('#homeStatus'); if (!box) return;
   box.innerHTML = ''; box.append(el('div', { class: 'msg ' + kind }, text));
   if (kind !== 'err') setTimeout(() => { if (box.firstChild && box.firstChild.textContent === text) box.innerHTML = ''; }, 6000);
 }
 
-// ── UI: list ─────────────────────────────────────────────
+// ── UI: home (camera fleet) ─────────────────────────────
+let view = 'home';
+const MODEL_COLOR = { 'T4.0CG': 'var(--m-t40)', '4.0CG-Pro': 'var(--m-p)', '4.0CG': 'var(--m-cg)' };
+// The SMS builder page for each camera type (others have no SMS builder yet).
+const SMS_PAGES = { 'T4.0CG': 'willfine_T4.0CG.html', '4.0CG-Pro': 'willfine_4.0P.html', '4.0CG': 'willfine_4.0CG.html' };
+
 function renderList() {
   const q = $('#search').value.trim().toLowerCase();
   const list = $('#list'); list.innerHTML = '';
-  const cams = DB.cameras.filter(c => !q || [c.name, c.imei, c.cameraId, c.model, c.notes].join(' ').toLowerCase().includes(q))
+  const cams = DB.cameras.filter(c => !q || [c.name, c.imei, c.cameraId, c.model, c.notes, c.simPhone].join(' ').toLowerCase().includes(q))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  const onCard = slot.camera && slot.camera.id;
   for (const c of cams) {
-    list.append(el('div', { class: 'item' + (c.id === selId ? ' sel' : ''), onclick: () => select(c.id) },
-      el('div', { class: 'n' }, c.name || '(no name)'),
-      el('div', { class: 'm' }, el('span', { class: 'mono' }, c.imei || c.cameraId || 'no code'), el('span', { class: 'badge' }, c.model)),
-      el('div', { class: 'm' }, el('span', {}, c.lastWrite ? 'SD written ' + fmtDate(c.lastWrite) : 'never written'))));
+    const m = MODELS[c.model] || { name: c.model };
+    const sms = SMS_PAGES[c.model];
+    list.append(el('article', { class: 'cam' + (c.id === onCard ? ' oncard' : ''), style: '--mcol:' + (MODEL_COLOR[c.model] || 'var(--m-other)') },
+      c.id === onCard ? el('span', { class: 'here' }, 'Card inserted') : null,
+      el('div', {}, el('h2', { onclick: () => select(c.id), title: 'Edit settings' }, c.name || 'Unnamed camera'), el('div', { class: 'model' }, m.name)),
+      el('dl', {},
+        el('dt', {}, 'Camera ID'), el('dd', { class: 'mono' }, c.cameraId || '—'),
+        el('dt', {}, 'IMEI'), el('dd', { class: 'mono' }, c.imei || '—'),
+        c.simPhone ? el('dt', {}, 'SIM number') : null, c.simPhone ? el('dd', { class: 'mono' }, c.simPhone) : null,
+        c.notes ? el('dt', {}, 'Notes') : null, c.notes ? el('dd', {}, c.notes) : null,
+        el('dt', {}, 'SD card'), el('dd', {}, c.lastWrite ? 'written ' + fmtDate(c.lastWrite) : 'not written yet')),
+      el('div', { class: 'acts' },
+        el('button', { onclick: () => select(c.id) }, 'Edit'),
+        el('button', { onclick: () => openSms(c), disabled: !sms, title: sms ? 'Build SMS commands for ' + m.name : 'No SMS builder for this camera type yet' }, 'Send SMS'),
+        el('button', { onclick: () => writeSDFor(c), disabled: !slot.vol, title: slot.vol ? 'Write this camera\'s settings to ' + slot.name : 'Insert an SD card first' }, 'Write SD'),
+        el('button', { onclick: () => copyFiles(c), disabled: !slot.vol, title: slot.vol ? 'Copy photos and videos from ' + slot.name : 'Insert an SD card first' }, 'Copy files'))));
   }
-  if (!cams.length) list.append(el('div', { class: 'note', style: 'padding:16px' }, DB.cameras.length ? 'No match.' : 'No cameras yet — scan one to start.'));
-  $('#count').textContent = DB.cameras.length + ' camera' + (DB.cameras.length === 1 ? '' : 's');
+  if (!cams.length) list.append(el('div', { class: 'emptyhome' }, DB.cameras.length
+    ? [el('h2', {}, 'No camera matches “' + q + '”'), 'Search looks at name, IMEI, Camera ID, type, SIM number and notes.']
+    : [el('h2', {}, 'No cameras yet'), 'Scan the barcode inside a camera to add it. ', el('div', { style: 'margin-top:14px' }, el('button', { class: 'primary', onclick: openScanner }, 'Scan camera barcode'))]));
+  $('#count').textContent = DB.cameras.length ? DB.cameras.length + ' camera' + (DB.cameras.length === 1 ? '' : 's') : '';
 }
 
-function select(id) { selId = id; renderList(); renderMain(); }
+function select(id) {
+  selId = id; view = 'camera';
+  $('#home').hidden = true; $('#main').hidden = false;
+  renderMain(); $('#main').scrollTop = 0;
+}
+function goHome() {
+  view = 'home'; selId = null;
+  $('#main').hidden = true; $('#home').hidden = false;
+  renderList(); updateSlot();
+}
+
+// ── SD card slot (live) ─────────────────────────────────
+// slot = { vol, name, info: {marker, photos, videos, hasConfig}, camera }
+let slot = {};
+async function pickCardVolume() {
+  if (!API) return null;
+  const vols = await API.sdVolumes();
+  const isFat = v => /fat|ms-dos|exfat/i.test(v.fs || '');
+  return vols.find(v => v.hasConfig) || vols.find(isFat) || null;
+}
+function cameraForMarker(mk) {
+  if (!mk) return null;
+  return DB.cameras.find(c => mk.id && c.id === mk.id) || DB.cameras.find(c => mk.cameraId && c.cameraId === mk.cameraId)
+    || DB.cameras.find(c => mk.imei && c.imei === mk.imei) || null;
+}
+// Card checks never overlap: a request during a check waits for it and then checks again.
+let slotRun = null, slotAgain = false;
+function updateSlot() {
+  if (slotRun) { slotAgain = true; return slotRun; }
+  slotRun = (async () => {
+    do { slotAgain = false; await refreshSlotOnce(); } while (slotAgain);
+    slotRun = null;
+  })();
+  return slotRun;
+}
+async function refreshSlotOnce() {
+  try {
+    const v = await pickCardVolume();
+    if (!v) slot = {};
+    else {
+      const info = await API.sdInspect(v.path).catch(() => null) || {};
+      slot = { vol: v.path, name: v.name, size: v.sizeBytes, info, camera: cameraForMarker(info.marker) };
+    }
+  } catch (_) { slot = {}; }
+  renderSlot(); if (view === 'home') renderList();
+}
+function renderSlot() {
+  const box = $('#slot'); box.innerHTML = '';
+  box.className = 'slot' + (slot.vol ? ' in' : '');
+  box.append(el('div', { class: 'sd', 'aria-hidden': 'true' }));
+  if (!API) { box.append(el('div', { class: 'what' }, el('b', {}, 'SD card'), el('span', {}, 'Card access needs the desktop app'))); return; }
+  if (!slot.vol) { box.append(el('div', { class: 'what' }, el('b', {}, 'No SD card'), el('span', {}, 'Insert a camera\'s card to read or write it'))); return; }
+  const i = slot.info || {};
+  const media = (i.photos || 0) + ' photo' + (i.photos === 1 ? '' : 's') + ', ' + (i.videos || 0) + ' video' + (i.videos === 1 ? '' : 's');
+  const who = slot.camera ? slot.camera.name : i.marker ? (i.marker.name || 'Camera ' + i.marker.cameraId) + ' (not in your list)' : 'Unknown camera';
+  const gb = slot.size ? (slot.size / 1e9).toFixed(1) + ' GB · ' : '';
+  box.append(el('div', { class: 'what' }, el('b', {}, who), el('span', {}, slot.name + ' · ' + gb + media + (i.hasConfig ? ' · settings not loaded yet' : ''))));
+  box.append(el('div', { class: 'acts' },
+    el('button', { class: 'primary', onclick: readSDCard }, 'Read SD'),
+    slot.camera ? el('button', { onclick: () => copyFiles(slot.camera), disabled: !(i.photos || i.videos) }, 'Copy files') : null,
+    el('button', { onclick: ejectCard, title: 'Eject the card so it can be removed' }, 'Eject')));
+}
+async function ejectCard() {
+  if (!slot.vol) return;
+  const r = await API.sdEject(slot.vol);
+  flash(r.ok ? 'ok' : 'err', r.ok ? 'Card ejected — you can remove it.' : (r.message || 'Could not eject — close any Finder window showing the card.'));
+  updateSlot();
+}
+
+// Read the inserted card and open the camera it belongs to.
+async function readSDCard() {
+  await updateSlot();
+  if (!slot.vol) return flash('info', 'No SD card found. Insert one and try again.');
+  const i = slot.info || {};
+  if (slot.camera) {
+    select(slot.camera.id);
+    const n = (k, w) => (k || 0) + ' ' + w + (k === 1 ? '' : 's');
+    flash('ok', 'This card belongs to "' + slot.camera.name + '" — ' + n(i.photos, 'photo') + ' and ' + n(i.videos, 'video') + ' on it.');
+    return;
+  }
+  if (i.marker) {
+    if (!confirm('This card belongs to "' + (i.marker.name || i.marker.cameraId) + '", which is not in your list. Add it now?')) return;
+    const c = newCamera({ model: MODELS[i.marker.model] ? i.marker.model : DEFAULT_MODEL, cameraId: i.marker.cameraId || '', imei: i.marker.imei || '', name: i.marker.name });
+    DB.cameras.push(c); saveDB(); await updateSlot(); select(c.id);
+    flash('ok', 'Added "' + c.name + '" from the card.');
+    return;
+  }
+  if (i.hasConfig) { await readSD(false); return; }
+  flash('info', 'This card has not been written by this app yet, so it does not say which camera it came from. Open a camera and use "Write SD" — the card is marked from then on.');
+}
+
+async function copyFiles(c) {
+  if (!slot.vol) await updateSlot();
+  if (!slot.vol) return flash('err', 'Insert the SD card first.');
+  const mk = slot.info && slot.info.marker;
+  if (mk && slot.camera && slot.camera.id !== c.id && !confirm('This card is marked as "' + slot.camera.name + '", not "' + c.name + '". Copy its files as "' + c.name + '" anyway?')) return;
+  flash('info', 'Choose where to copy the photos and videos…');
+  const r = await API.sdCopyMedia(slot.vol, { name: c.name, cameraId: c.cameraId });
+  if (r.cancelled) { flash('info', 'Copy cancelled.'); return; }
+  if (!r.ok) { flash('err', r.message || 'Copy failed.'); return; }
+  const mb = (r.bytes / 1e6).toFixed(1);
+  const box = view === 'camera' ? $('#status') : $('#homeStatus'); box.innerHTML = '';
+  box.append(el('div', { class: 'msg ok' }, 'Copied ' + r.copied + ' file' + (r.copied === 1 ? '' : 's') + ' (' + mb + ' MB)' + (r.skipped ? ', ' + r.skipped + ' already there' : '') + ' to ' + r.dest + '. ',
+    el('button', { style: 'margin-left:8px', onclick: () => API.showFolder(r.dest) }, 'Open folder')));
+}
+
+function openSms(c) {
+  const page = SMS_PAGES[c.model]; if (!page) return;
+  try { if (window.parent && window.parent.openSms) return window.parent.openSms(page, { name: c.name, simPhone: c.simPhone || '' }); } catch (_) {}
+  location.href = page;
+}
+
+async function writeSDFor(c) {
+  await updateSlot();
+  if (!slot.vol) return flash('err', 'Insert the SD card first.');
+  select(c.id);
+  await writeSD();
+}
 
 // ── UI: detail ───────────────────────────────────────────
 const EXTRA_NAMES = { cbMMSSwitch: 'MMS Switch', rbEncrypt: 'SMTP Encryption', PCBit: 'SMTP/FTP Pic Count', tbDateTime: 'Set camera clock' };
@@ -348,13 +529,7 @@ function fieldName(m, k) { return m.names[k] || EXTRA_NAMES[k] || k; }
 
 function renderMain() {
   const c = cam(), main = $('#main'); main.innerHTML = '';
-  if (!c) {
-    main.append(el('div', { class: 'empty' },
-      el('h2', {}, DB.cameras.length ? 'Pick a camera' : 'Your camera warehouse'),
-      el('div', {}, 'Scan the barcode inside a camera to add it. Each camera keeps its own name, type and SD-card settings.'),
-      el('button', { class: 'primary', onclick: openScanner }, '📷 Scan camera barcode')));
-    return;
-  }
+  if (!c) { goHome(); return; }
   const m = MODELS[c.model];
   const touch = () => { c.updatedAt = Date.now(); saveDB(); };
 
@@ -372,11 +547,19 @@ function renderMain() {
     c.cameraId = e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, ID_DIGITS); e.target.value = c.cameraId;
     c.settings.tbCameraID = c.cameraId; touch(); renderList();
   } });
+  const sms = SMS_PAGES[c.model];
+  main.append(el('div', { class: 'crumb' },
+    el('button', { onclick: goHome }, '← All cameras'),
+    el('h1', {}, c.name || 'Unnamed camera'),
+    el('span', { style: 'flex:1' }),
+    el('button', { onclick: () => openSms(c), disabled: !sms, title: sms ? '' : 'No SMS builder for this camera type yet' }, 'Send SMS')));
   main.append(el('div', { class: 'head' },
     el('label', { class: 'name' }, 'Name', el('input', { value: c.name, oninput: e => { c.name = e.target.value; touch(); renderList(); } })),
     el('label', {}, 'Camera type', modelSel),
     el('label', {}, 'IMEI (scanned)', imeiIn),
     el('label', {}, 'Camera ID (last 12 digits)', idIn),
+    el('label', {}, 'SIM number', el('input', { class: 'mono', value: c.simPhone || '', placeholder: '+30…', title: 'Phone number of the SIM in this camera (for SMS commands)',
+      oninput: e => { c.simPhone = e.target.value.replace(/[^0-9+ ]/g, ''); touch(); } })),
     el('label', {}, 'Notes', el('input', { value: c.notes || '', placeholder: 'location, owner…', oninput: e => { c.notes = e.target.value; touch(); } }))));
 
   // SD bar
@@ -385,7 +568,8 @@ function renderMain() {
     el('span', { style: 'color:var(--muted)' }, 'SD card:'), volSel,
     el('button', { onclick: refreshVolumes, title: 'Look for cards again' }, '↻'),
     el('button', { class: 'ok', onclick: writeSD }, 'Write to SD card'),
-    el('button', { onclick: () => readSD(true), title: 'Load a Parameter.cfg that is still on the card (the camera may delete it after loading)' }, 'Load from SD'),
+    el('button', { onclick: readSDCard, title: 'Find which camera the inserted card belongs to' }, 'Read SD'),
+    el('button', { onclick: () => copyFiles(c), title: 'Copy photos and videos from the card to a folder on this computer' }, 'Copy files'),
     el('span', { class: 'sep' }),
     el('button', { onclick: saveFile }, 'Save .cfg…'),
     el('button', { onclick: loadFile }, 'Load .cfg…'),
@@ -399,7 +583,7 @@ function renderMain() {
     el('span', { class: 'count' }, 'Last written: ' + fmtDate(c.lastWrite)),
     el('button', { class: 'danger', onclick: () => {
       if (!confirm('Delete "' + c.name + '" from the warehouse?')) return;
-      DB.cameras = DB.cameras.filter(x => x.id !== c.id); selId = null; saveDB({ allowEmpty: true }); renderList(); renderMain();
+      DB.cameras = DB.cameras.filter(x => x.id !== c.id); selId = null; saveDB({ allowEmpty: true }); goHome();
     } }, 'Delete')));
   main.append(el('div', { class: 'status', id: 'status' }));
   refreshVolumes();
@@ -630,7 +814,7 @@ async function refreshVolumes() {
   }
   return vols;
 }
-function chosenVolume() { const v = $('#volSel') && $('#volSel').value; if (!v) flash('err', 'Insert an SD card and press ↻ first.'); return v; }
+function chosenVolume() { const v = ($('#volSel') && $('#volSel').value) || slot.vol; if (!v) flash('err', 'Insert an SD card and press ↻ first.'); return v; }
 
 function encodeCurrent() {
   const c = cam(), m = MODELS[c.model];
@@ -661,8 +845,11 @@ async function writeSD() {
       const other = matchByFile(existing);
       if (other && other.id !== c.id && !confirm('This card has the config of "' + other.name + '". Overwrite it with "' + c.name + '"?')) return;
     }
-    const r = await API.sdWrite(vol, bytes);
-    c.lastWrite = Date.now(); c.lastWriteCard = vol; saveDB(); renderList();
+    const marker = ['Camera Management card marker — do not delete',
+      'Name: ' + c.name, 'Camera ID: ' + (c.cameraId || ''), 'IMEI: ' + (c.imei || ''), 'Model: ' + c.model,
+      'Warehouse ID: ' + c.id, 'Written: ' + new Date().toISOString()].join('\n');
+    const r = await API.sdWrite(vol, bytes, marker);
+    c.lastWrite = Date.now(); c.lastWriteCard = vol; saveDB(); renderList(); updateSlot();
     renderMain();
     const box = $('#status');
     box.append(el('div', { class: 'msg ok' }, `Written and verified: ${r.bytes} bytes → ${r.path}. Put the card in "${c.name}", switch on and open the menu to load it. `,
@@ -979,7 +1166,12 @@ $('#btnImport').onclick = async () => {
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#scanModal').classList.contains('show')) closeScanner(); });
 
-(async () => { await loadDB(); renderList(); renderMain(); })();
+(async () => {
+  await loadDB(); goHome();
+  // Refresh the card slot when a card is inserted or removed (and every few seconds as a fallback).
+  if (API && API.onSdChanged) API.onSdChanged(() => { try { updateSlot(); } catch (_) {} });
+  setInterval(() => { if (!document.hidden) updateSlot(); }, 5000);
+})();
 </script>
 </body>
 </html>

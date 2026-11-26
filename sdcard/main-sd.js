@@ -1,12 +1,52 @@
 // Main-process side of the Warehouse / SD-card feature.
 // Registers IPC handlers for: warehouse storage, SD-card volumes, reading/writing
 // Parameter.cfg, file dialogs and webcam permission.
-const { app, ipcMain, dialog, systemPreferences, session, BrowserWindow } = require('electron');
+const { app, ipcMain, dialog, systemPreferences, session, BrowserWindow, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { execFile } = require('child_process');
 
 const CFG_NAME = 'Parameter.cfg';
+// Small text file the app leaves on the card so it can tell later which camera the card came from.
+// The camera only deletes Parameter.cfg; it leaves other files alone.
+const MARKER_NAME = 'CAMERA_ID.TXT';
+const MEDIA_EXT = /\.(jpe?g|mp4|mov|avi|3gp)$/i;
+
+function prefsPath() { return path.join(app.getPath('userData'), 'prefs.json'); }
+function readPrefs() { try { return JSON.parse(fs.readFileSync(prefsPath(), 'utf8')); } catch (_) { return {}; } }
+function writePrefs(p) { try { fs.writeFileSync(prefsPath(), JSON.stringify(p, null, 1)); } catch (_) {} }
+
+function parseMarker(text) {
+  const out = {};
+  for (const line of String(text).split(/\r?\n/)) {
+    const m = line.match(/^([A-Za-z ]+):\s*(.*)$/); if (!m) continue;
+    const k = m[1].trim().toLowerCase();
+    if (k === 'name') out.name = m[2];
+    else if (k === 'camera id') out.cameraId = m[2];
+    else if (k === 'imei') out.imei = m[2];
+    else if (k === 'model') out.model = m[2];
+    else if (k === 'warehouse id') out.id = m[2];
+    else if (k === 'written') out.written = m[2];
+  }
+  return out.cameraId || out.imei || out.id ? out : null;
+}
+
+// Photos and videos under DCIM (thumbnails excluded).
+function listMedia(vol) {
+  const out = [];
+  const walk = dir => {
+    let ents = []; try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const e of ents) {
+      if (e.name.startsWith('.')) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) { if (!/^THUMB$/i.test(e.name)) walk(p); }
+      else if (MEDIA_EXT.test(e.name)) { try { out.push({ path: p, name: e.name, size: fs.statSync(p).size }); } catch (_) {} }
+    }
+  };
+  walk(path.join(vol, 'DCIM'));
+  return out;
+}
+const safeName = s => String(s || '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Camera';
 
 function warehousePath() { return path.join(app.getPath('userData'), 'warehouse.json'); }
 
@@ -174,7 +214,7 @@ function register(getWin) {
     return new Uint8Array(fs.readFileSync(file));
   });
 
-  ipcMain.handle('sd:write', async (_e, vol, bytes) => {
+  ipcMain.handle('sd:write', async (_e, vol, bytes, markerText) => {
     await checkVolume(vol);
     const buf = Buffer.from(bytes);
     if (buf.length < 0x200 || buf.slice(0, 3).toString('latin1') !== 'MMS') throw new Error('Refusing to write: not a valid config.');
@@ -185,8 +225,63 @@ function register(getWin) {
     if (!back.equals(buf)) throw new Error('Verification failed: the card returned different data. Try another card.');
     // macOS leaves an AppleDouble "._Parameter.cfg" on FAT cards; keep the card clean for the camera.
     try { fs.unlinkSync(path.join(vol, '._' + CFG_NAME)); } catch (_) {}
+    if (markerText) {
+      try {
+        fs.writeFileSync(path.join(vol, MARKER_NAME), String(markerText).replace(/\r?\n/g, '\r\n'));
+        try { fs.unlinkSync(path.join(vol, '._' + MARKER_NAME)); } catch (_) {}
+      } catch (_) { /* the settings file matters; a missing marker is not fatal */ }
+    }
     return { path: file, bytes: buf.length };
   });
+
+  // What is on a card: which camera it belongs to (marker), pending settings, photo/video counts.
+  ipcMain.handle('sd:inspect', async (_e, vol) => {
+    await checkVolume(vol);
+    let marker = null;
+    try { marker = parseMarker(fs.readFileSync(path.join(vol, MARKER_NAME), 'utf8')); } catch (_) {}
+    const media = listMedia(vol);
+    return {
+      marker,
+      hasConfig: fs.existsSync(path.join(vol, CFG_NAME)),
+      photos: media.filter(m => /\.jpe?g$/i.test(m.name)).length,
+      videos: media.filter(m => !/\.jpe?g$/i.test(m.name)).length,
+      bytes: media.reduce((a, m) => a + m.size, 0),
+    };
+  });
+
+  // Copy photos/videos to a folder the user picks, as "<Name> - <ID>/<Name>_<ID>_<file>".
+  ipcMain.handle('sd:copyMedia', async (e, vol, cam) => {
+    await checkVolume(vol);
+    const media = listMedia(vol);
+    if (!media.length) return { ok: false, message: 'There are no photos or videos on this card.' };
+    const prefs = readPrefs();
+    const r = await dialog.showOpenDialog(getWin(), {
+      title: 'Copy photos and videos to…', buttonLabel: 'Copy here',
+      defaultPath: prefs.lastCopyDir || app.getPath('pictures'),
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, cancelled: true };
+    prefs.lastCopyDir = r.filePaths[0]; writePrefs(prefs);
+    const tag = safeName(cam && cam.name) + (cam && cam.cameraId ? '_' + safeName(cam.cameraId) : '');
+    const dest = path.join(r.filePaths[0], safeName(cam && cam.name) + (cam && cam.cameraId ? ' - ' + safeName(cam.cameraId) : ''));
+    fs.mkdirSync(dest, { recursive: true });
+    let copied = 0, skipped = 0, bytes = 0;
+    for (let i = 0; i < media.length; i++) {
+      const m = media[i];
+      // Keep the camera's folder name in the file name so files from 100SYCAM / 101SYCAM never collide.
+      const folder = path.basename(path.dirname(m.path));
+      const target = path.join(dest, tag + '_' + (/^\d{3}/.test(folder) ? folder + '_' : '') + m.name);
+      try {
+        const st = fs.existsSync(target) ? fs.statSync(target) : null;
+        if (st && st.size === m.size) skipped++;
+        else { await fs.promises.copyFile(m.path, target); copied++; bytes += m.size; }
+      } catch (err) { return { ok: false, message: 'Copy stopped at ' + m.name + ': ' + err.message, copied, skipped, dest }; }
+      e.sender.send('copy-progress', { done: i + 1, total: media.length });
+    }
+    return { ok: true, copied, skipped, bytes, dest };
+  });
+
+  ipcMain.handle('sd:showFolder', (_e, p) => { if (p && fs.existsSync(p)) shell.openPath(p); return true; });
 
   // Erase the card as FAT32 (what the cameras use). Only removable, non-internal volumes;
   // the user confirms in a native dialog that names the card and its size.
@@ -268,6 +363,19 @@ function register(getWin) {
     if (st === 'granted') return true;
     if (st === 'denied' || st === 'restricted') return false;
     return systemPreferences.askForMediaAccess('camera');
+  });
+
+  // Tell the windows when a card is inserted or removed (macOS / Linux mount points).
+  app.whenReady().then(() => {
+    const dir = process.platform === 'darwin' ? '/Volumes' : null;
+    if (!dir) return;
+    let timer = null;
+    try {
+      fs.watch(dir, () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => BrowserWindow.getAllWindows().forEach(w => w.webContents.send('sd-changed')), 800);
+      });
+    } catch (_) {}
   });
 
   // Allow webcam (video only) for our own local pages.
