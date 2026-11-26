@@ -191,9 +191,16 @@ function migrateDB() {
     const i = MODELS['T4.0CG'].labels.cbImageSize.indexOf(OLD_T_IMG[s.cbImageSize]);
     if (i >= 0) s.cbImageSize = i;
   };
-  for (const c of DB.cameras) if (c.model === 'T4.0CG' && (c.fixVersion || 1) < 2) { fixT(c.settings); c.fixVersion = 2; changed = true; }
+  // v3: the T only has FHD/HD video; WVGA (2) made the camera use FHD, so keep what it really did.
+  const fixT3 = s => { if (s && s.cbVideoSize > 1) s.cbVideoSize = 0; };
+  const upgrade = o => {
+    const v = o.fixVersion || 1; if (v >= 3) return;
+    if (v < 2) fixT(o.settings);
+    fixT3(o.settings); o.fixVersion = 3; changed = true;
+  };
+  for (const c of DB.cameras) if (c.model === 'T4.0CG') upgrade(c);
   const d = (DB.defaults || {})['T4.0CG'];
-  if (d && (d.fixVersion || 1) < 2) { fixT(d.settings); d.fixVersion = 2; changed = true; }
+  if (d) upgrade(d);
   return changed;
 }
 // Every change is written to disk straight away (in order), so nothing is lost when
@@ -439,12 +446,16 @@ function renderLayout(c, m, touch, main) {
   const pane = el('div', { class: 'pane' });
   const sectionOf = k => m.tabs[k] || 1;
   for (const g of tab.groups) {
-    const items = g.items.map(([k, label]) => [byKey(k), label]).filter(([f]) => f);
+    const items = g.items.map(([k, label, note]) => [byKey(k), label, note]).filter(([f]) => f);
     if (!items.length) continue;
     const off = items.some(([f]) => !(c.modify & sectionOf(CODEC.ctlKey(f))));
     const box = el('div', { class: 'grp' + (off ? ' notapplied' : ''), style: 'max-width:680px' }, g.title ? el('h3', {}, g.title) : null);
     const grid = el('div', { class: 'grid one' });
-    for (const [f, label] of items) grid.append(fieldRow(f, c, m, touch, label));
+    for (const [f, label, note] of items) {
+      const row = fieldRow(f, c, m, touch, label);
+      if (note) { row.style.opacity = '.6'; row.append(el('div', { class: 'hint', style: 'color:var(--warn)' }, note)); }
+      grid.append(row);
+    }
     box.append(grid);
     pane.append(box);
   }
