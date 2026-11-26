@@ -22,9 +22,25 @@ function writeWarehouse(data) {
   if (!data || !Array.isArray(data.cameras)) throw new Error('Invalid warehouse data');
   const file = warehousePath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  if (fs.existsSync(file)) fs.copyFileSync(file, file + '.bak'); // one-step undo
+  // Never let an empty list silently replace a warehouse that has cameras.
+  if (!data.cameras.length && fs.existsSync(file)) {
+    try { if ((JSON.parse(fs.readFileSync(file, 'utf8')).cameras || []).length > 1 && !data.allowEmpty) throw new Error('Refusing to replace the warehouse with an empty one.'); }
+    catch (e) { if (/Refusing/.test(e.message)) throw e; }
+  }
+  delete data.allowEmpty;
+  if (fs.existsSync(file)) {
+    fs.copyFileSync(file, file + '.bak');
+    // One backup per day, last 30 days kept, in .../backups/
+    const dir = path.join(path.dirname(file), 'backups');
+    fs.mkdirSync(dir, { recursive: true });
+    const day = new Date().toISOString().slice(0, 10);
+    fs.copyFileSync(file, path.join(dir, 'warehouse-' + day + '.json'));
+    const old = fs.readdirSync(dir).filter(n => /^warehouse-\d{4}-\d{2}-\d{2}\.json$/.test(n)).sort().slice(0, -30);
+    for (const n of old) { try { fs.unlinkSync(path.join(dir, n)); } catch (_) {} }
+  }
   const tmp = file + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 1));
+  const fd = fs.openSync(tmp, 'w');
+  try { fs.writeSync(fd, JSON.stringify(data, null, 1)); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   fs.renameSync(tmp, file);
   return true;
 }
@@ -170,6 +186,31 @@ function register(getWin) {
     // macOS leaves an AppleDouble "._Parameter.cfg" on FAT cards; keep the card clean for the camera.
     try { fs.unlinkSync(path.join(vol, '._' + CFG_NAME)); } catch (_) {}
     return { path: file, bytes: buf.length };
+  });
+
+  // Erase the card as FAT32 (what the cameras use). Only removable, non-internal volumes;
+  // the user confirms in a native dialog that names the card and its size.
+  ipcMain.handle('sd:format', async (_e, vol, label) => {
+    const v = await checkVolume(vol);
+    if (process.platform !== 'darwin') return { ok: false, message: 'Formatting is only available on macOS.' };
+    const info = await macVolumeInfo(vol);
+    const dev = info.DeviceIdentifier;
+    if (!dev || info.Internal === true || !(info.RemovableMedia || info.Removable || info.Ejectable) || fs.realpathSync(vol) === '/') {
+      return { ok: false, message: 'This does not look like a removable SD card — not formatting it.' };
+    }
+    const name = String(label || 'CAMERA').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 11) || 'CAMERA';
+    const gb = info.TotalSize ? (info.TotalSize / 1e9).toFixed(1) + ' GB' : 'unknown size';
+    const r = await dialog.showMessageBox(getWin(), {
+      type: 'warning', buttons: ['Cancel', 'Erase card'], defaultId: 0, cancelId: 0,
+      title: 'Format SD card',
+      message: `Erase "${v.name}" (${gb}, /dev/${dev})?`,
+      detail: `Everything on this card — photos, videos and settings — will be permanently deleted. It will be formatted as FAT32 and named "${name}". This cannot be undone.`,
+    });
+    if (r.response !== 1) return { ok: false, cancelled: true };
+    const out = await new Promise(resolve => execFile('/usr/sbin/diskutil', ['eraseVolume', 'FAT32', name, '/dev/' + dev],
+      { timeout: 180000 }, (err, stdout, stderr) => resolve({ err, stdout, stderr })));
+    if (out.err) return { ok: false, message: (out.stderr || out.err.message || 'diskutil failed').trim() };
+    return { ok: true, path: path.join('/Volumes', name), name };
   });
 
   ipcMain.handle('sd:eject', async (_e, vol) => {

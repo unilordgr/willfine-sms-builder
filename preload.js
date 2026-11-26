@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sdRead: (vol) => ipcRenderer.invoke('sd:read', vol),
   sdWrite: (vol, bytes) => ipcRenderer.invoke('sd:write', vol, bytes),
   sdEject: (vol) => ipcRenderer.invoke('sd:eject', vol),
+  sdFormat: (vol, label) => ipcRenderer.invoke('sd:format', vol, label),
   saveCfg: (bytes, name) => ipcRenderer.invoke('file:saveCfg', bytes, name),
   openCfg: () => ipcRenderer.invoke('file:openCfg'),
   exportJson: (text, name) => ipcRenderer.invoke('file:exportJson', text, name),

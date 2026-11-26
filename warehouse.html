@@ -129,6 +129,7 @@
       <input id="code" class="mono" placeholder="…or type the 15-digit number" inputmode="numeric">
     </div>
     <div id="found" class="found" hidden></div>
+    <label class="row" style="gap:6px;color:#c3ccd6"><input type="checkbox" id="applyDefaults"> Apply default settings to new cameras</label>
     <div class="row" style="justify-content:flex-end">
       <button id="btnCancelScan">Cancel</button>
       <button class="primary" id="btnUseCode" disabled>Add camera</button>
@@ -170,21 +171,54 @@ const clone = o => JSON.parse(JSON.stringify(o));
 
 // ── store ────────────────────────────────────────────────
 let DB = { version: 1, cameras: [] };
-let selId = null, curTab = 1, saveTimer = null;
+let selId = null, curTab = 1;
 async function loadDB() {
   if (API) DB = await API.whLoad();
   else { try { DB = JSON.parse(localStorage.getItem('wf_warehouse')) || DB; } catch (_) {} }
 }
-function saveDB(now) {
-  clearTimeout(saveTimer);
-  const go = async () => {
-    try { if (API) await API.whSave(DB); else localStorage.setItem('wf_warehouse', JSON.stringify(DB)); }
+// Every change is written to disk straight away (in order), so nothing is lost when
+// switching tabs, quitting or updating the app.
+let saveChain = Promise.resolve();
+function saveDB(opts) {
+  const snapshot = JSON.parse(JSON.stringify(DB));
+  if (opts && opts.allowEmpty) snapshot.allowEmpty = true;
+  saveChain = saveChain.then(async () => {
+    try { if (API) await API.whSave(snapshot); else localStorage.setItem('wf_warehouse', JSON.stringify(snapshot)); }
     catch (e) { flash('err', 'Could not save warehouse: ' + e.message); }
-  };
-  if (now) return go();
-  saveTimer = setTimeout(go, 400);
+  });
+  return saveChain;
 }
 const cam = () => DB.cameras.find(c => c.id === selId);
+
+// Defaults: one template per camera type. The FTP user and Camera ID belong to each camera.
+const PER_CAMERA = ['tFTPAccount', 'tbCameraID'];
+function defaultsFor(model) { return (DB.defaults || {})[model] || null; }
+function applyDefaults(c) {
+  const d = defaultsFor(c.model); if (!d) return false;
+  const keep = {}; for (const k of PER_CAMERA) keep[k] = c.settings[k];
+  c.settings = Object.assign(CODEC.defaults(MODELS[c.model]), clone(d.settings), keep);
+  if (c.cameraId) c.settings.tbCameraID = c.cameraId;
+  c.modify = d.modify; c.pwFormat = d.pwFormat;
+  c.updatedAt = Date.now();
+  return true;
+}
+function saveDefaults() {
+  const c = cam();
+  const settings = clone(c.settings); for (const k of PER_CAMERA) delete settings[k];
+  DB.defaults = DB.defaults || {};
+  const had = !!DB.defaults[c.model];
+  if (had && !confirm('Replace the saved ' + MODELS[c.model].name + ' defaults with the settings of "' + c.name + '"?')) return;
+  DB.defaults[c.model] = { settings, modify: c.modify, pwFormat: c.pwFormat || 'A', from: c.name, savedAt: Date.now() };
+  saveDB(); renderMain();
+  flash('ok', 'Saved "' + c.name + '" as the ' + MODELS[c.model].name + ' defaults (everything except FTP user and Camera ID).');
+}
+function loadDefaults() {
+  const c = cam(), d = defaultsFor(c.model);
+  if (!d) return flash('info', 'No defaults saved for ' + MODELS[c.model].name + ' yet — set up a camera and press "Save as defaults".');
+  if (!confirm('Replace the settings of "' + c.name + '" with the ' + MODELS[c.model].name + ' defaults? Its FTP user and Camera ID are kept.')) return;
+  applyDefaults(c); saveDB(); renderList(); renderMain();
+  flash('ok', 'Loaded the ' + MODELS[c.model].name + ' defaults (saved from "' + d.from + '" on ' + fmtDate(d.savedAt) + ').');
+}
 
 function newCamera({ imei = '', cameraId = '', model = DEFAULT_MODEL, name } = {}) {
   const m = MODELS[model];
@@ -324,11 +358,16 @@ function renderMain() {
     el('button', { onclick: saveFile }, 'Save .cfg…'),
     el('button', { onclick: loadFile }, 'Load .cfg…'),
     el('button', { onclick: copyFrom }, 'Copy settings from…'),
+    el('span', { class: 'sep' }),
+    el('button', { onclick: saveDefaults, title: 'Use this camera\'s settings (except FTP user and Camera ID) as the defaults for ' + MODELS[c.model].name }, 'Save as defaults'),
+    el('button', { onclick: loadDefaults, disabled: !defaultsFor(c.model), title: defaultsFor(c.model) ? 'Saved from "' + defaultsFor(c.model).from + '" on ' + fmtDate(defaultsFor(c.model).savedAt) : 'No defaults saved for this type yet' }, 'Load defaults'),
+    el('span', { class: 'sep' }),
+    el('button', { class: 'danger', onclick: formatSD, title: 'Erase the selected SD card (FAT32)' }, 'Format SD…'),
     el('span', { style: 'flex:1' }),
     el('span', { class: 'count' }, 'Last written: ' + fmtDate(c.lastWrite)),
     el('button', { class: 'danger', onclick: () => {
       if (!confirm('Delete "' + c.name + '" from the warehouse?')) return;
-      DB.cameras = DB.cameras.filter(x => x.id !== c.id); selId = null; saveDB(true); renderList(); renderMain();
+      DB.cameras = DB.cameras.filter(x => x.id !== c.id); selId = null; saveDB({ allowEmpty: true }); renderList(); renderMain();
     } }, 'Delete')));
   main.append(el('div', { class: 'status', id: 'status' }));
   refreshVolumes();
@@ -500,6 +539,18 @@ function encodeCurrent() {
   return CODEC.encode(m, s, c.modify, { pwFormat: c.pwFormat || 'A' });
 }
 
+async function formatSD() {
+  if (!API || !API.sdFormat) return flash('err', 'Formatting needs the desktop app on macOS.');
+  const vol = chosenVolume(); if (!vol) return;
+  flash('info', 'Waiting for your confirmation…');
+  const r = await API.sdFormat(vol, 'CAMERA');
+  if (r.cancelled) { flash('info', 'Format cancelled — nothing was changed.'); return; }
+  if (!r.ok) { flash('err', 'Format failed: ' + r.message); return; }
+  await refreshVolumes();
+  const sel = $('#volSel'); if (sel && [...sel.options].some(o => o.value === r.path)) sel.value = r.path;
+  flash('ok', 'Card formatted as FAT32 and named "' + r.name + '". You can write the settings now.');
+}
+
 async function writeSD() {
   const c = cam(); const vol = chosenVolume(); if (!vol) return;
   if (!c.modify) return flash('err', 'No tab is ticked — the camera would ignore the card. Tick at least one tab.');
@@ -511,7 +562,7 @@ async function writeSD() {
       if (other && other.id !== c.id && !confirm('This card has the config of "' + other.name + '". Overwrite it with "' + c.name + '"?')) return;
     }
     const r = await API.sdWrite(vol, bytes);
-    c.lastWrite = Date.now(); c.lastWriteCard = vol; saveDB(true); renderList();
+    c.lastWrite = Date.now(); c.lastWriteCard = vol; saveDB(); renderList();
     renderMain();
     const box = $('#status');
     box.append(el('div', { class: 'msg ok' }, `Written and verified: ${r.bytes} bytes → ${r.path}. Put the card in "${c.name}", switch on and open the menu to load it. `,
@@ -542,7 +593,7 @@ function applyBytes(c, bytes, sourceName) {
   // A camera keeps its own ID even when it loads another camera's file as a template.
   if (c.cameraId) c.settings.tbCameraID = c.cameraId;
   else if (d.values.tbCameraID) c.cameraId = d.values.tbCameraID;
-  c.updatedAt = Date.now(); saveDB(true); renderList(); renderMain();
+  c.updatedAt = Date.now(); saveDB(); renderList(); renderMain();
   flash('ok', 'Loaded settings from ' + sourceName + '.');
   return true;
 }
@@ -629,6 +680,7 @@ function setCode(raw) {
 }
 async function openScanner() {
   $('#scanModal').classList.add('show'); setCode(''); $('#code').focus();
+  $('#applyDefaults').checked = DB.applyDefaults !== false;
   $('#scanLbl').textContent = 'Starting camera…';
   // Triggers the macOS permission prompt on first use; the webcam call gives the real answer.
   if (API && API.cameraAccess) { try { await API.cameraAccess(); } catch (_) {} }
@@ -779,14 +831,16 @@ function useCode() {
   if (existing) { closeScanner(); select(existing.id); return; }
   const model = ($('#newModel') || {}).value || DEFAULT_MODEL;
   const c = newCamera({ imei: scanCode.length >= 15 ? scanCode : '', cameraId: id, model, name: ($('#newName') || {}).value });
-  DB.lastModel = model; DB.cameras.push(c); saveDB(true);
+  DB.applyDefaults = $('#applyDefaults').checked;
+  const usedDefaults = DB.applyDefaults && applyDefaults(c);
+  DB.lastModel = model; DB.cameras.push(c); saveDB();
   closeScanner(); select(c.id);
-  flash('ok', 'Added "' + c.name + '" with Camera ID ' + id + '. Adjust its settings, then write the SD card.');
+  flash('ok', 'Added "' + c.name + '" with Camera ID ' + id + (usedDefaults ? ', using the ' + MODELS[model].name + ' defaults' : DB.applyDefaults ? ' (no ' + MODELS[model].name + ' defaults saved yet)' : '') + '. Write the SD card when ready.');
 }
 
 // ── wire up ──────────────────────────────────────────────
 $('#btnScan').onclick = openScanner;
-$('#btnAdd').onclick = () => { const c = newCamera({ model: DB.lastModel || DEFAULT_MODEL }); DB.cameras.push(c); saveDB(true); select(c.id); };
+$('#btnAdd').onclick = () => { const c = newCamera({ model: DB.lastModel || DEFAULT_MODEL }); DB.cameras.push(c); saveDB(); select(c.id); };
 $('#search').oninput = renderList;
 $('#btnCancelScan').onclick = closeScanner;
 $('#btnUseCode').onclick = useCode;
@@ -819,7 +873,7 @@ $('#btnImport').onclick = async () => {
       if (!MODELS[c.model] || DB.cameras.some(x => x.id === c.id || (c.imei && x.imei === c.imei))) continue;
       DB.cameras.push(c); added++;
     }
-    saveDB(true); renderList(); alert('Imported ' + added + ' camera(s). Duplicates were skipped.');
+    saveDB(); renderList(); alert('Imported ' + added + ' camera(s). Duplicates were skipped.');
   } catch (e) { alert('Import failed: ' + e.message); }
 };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#scanModal').classList.contains('show')) closeScanner(); });
